@@ -8,6 +8,5 @@ dist/
 # Local-only files (do not push)
 .claude/
 Test.md
-backup_*/
 server/uploads/*
 !server/uploads/.gitkeep

@@ -1,0 +1,28 @@
+[
+  {
+    "_id": "69abf27b4e2e03316aaff830",
+    "title": "Internet",
+    "amount": 500,
+    "category": "Internet",
+    "date": "2026-03-07T00:00:00.000Z",
+    "paymentMethod": "upi",
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-07T09:40:11.295Z",
+    "updatedAt": "2026-03-07T09:40:11.295Z",
+    "__v": 0
+  },
+  {
+    "_id": "69abf2b64e2e03316aaff843",
+    "title": "Fuel",
+    "amount": 3000,
+    "category": "Fuel",
+    "date": "2026-03-07T00:00:00.000Z",
+    "paymentMethod": "upi",
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-07T09:41:10.631Z",
+    "updatedAt": "2026-03-07T09:41:10.631Z",
+    "__v": 0
+  }
+]

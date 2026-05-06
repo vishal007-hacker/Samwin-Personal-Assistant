@@ -1,0 +1,30 @@
+[
+  {
+    "_id": "69c403f4a8ea984d0e61ee8c",
+    "title": "PAN Card",
+    "intervalMinutes": 15,
+    "endDate": "2026-03-27T18:29:59.000Z",
+    "nextTrigger": "2026-03-25T16:19:20.289Z",
+    "isActive": false,
+    "triggerCount": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-25T15:49:08.250Z",
+    "updatedAt": "2026-03-25T16:07:21.466Z",
+    "__v": 0,
+    "lastTriggered": "2026-03-25T16:04:20.289Z"
+  },
+  {
+    "_id": "69c4050d0b2cfddd894bbde9",
+    "title": "EB Bill Payments",
+    "intervalMinutes": 5,
+    "endDate": "2026-03-25T18:29:59.000Z",
+    "nextTrigger": "2026-03-25T16:23:00.144Z",
+    "isActive": true,
+    "triggerCount": 4,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-25T15:53:49.886Z",
+    "updatedAt": "2026-03-25T16:18:00.155Z",
+    "__v": 0,
+    "lastTriggered": "2026-03-25T16:18:00.144Z"
+  }
+]
