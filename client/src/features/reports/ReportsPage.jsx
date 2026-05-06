@@ -7,9 +7,26 @@ import {
   FileText,
   Users,
   Building2,
+  Car,
+  Smartphone,
+  ShoppingBag,
+  Receipt,
+  Wallet,
+  GraduationCap,
+  UserCheck,
+  CalendarCheck,
 } from 'lucide-react';
 import api from '../../lib/axios';
 import { formatDate, formatCurrency } from '../../lib/utils';
+import { useStocks } from '../stock/stockApi';
+import { useSales } from '../sales/salesApi';
+import { useExpenses } from '../expenses/expenseApi';
+import { useBillings } from '../billing/billingApi';
+import { useVehicleInsurances } from '../vehicle-insurance/vehicleInsuranceApi';
+import { useCredits } from '../credits/creditApi';
+import { useAllEmployees } from '../employees/employeeApi';
+import { useAttendance } from '../employees/attendanceApi';
+import { useLMSEntries } from '../lms/lmsApi';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -49,12 +66,124 @@ function exportCSV(filename, headers, rows) {
 
 // ─── Tab Definitions ────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'premium', label: 'Premium Collection', icon: BarChart3 },
-  { key: 'policy', label: 'Policy-wise', icon: FileText },
-  { key: 'customer', label: 'Customer-wise', icon: Users },
-  { key: 'scheme', label: 'Scheme-wise', icon: Building2 },
+const TAB_GROUPS = [
+  {
+    label: 'Insurance',
+    tabs: [
+      { key: 'premium', label: 'Premium Collection', icon: BarChart3, dateRange: true },
+      { key: 'policy', label: 'Policy-wise', icon: FileText, dateRange: true },
+      { key: 'customer', label: 'Customer-wise', icon: Users },
+      { key: 'scheme', label: 'Scheme-wise', icon: Building2 },
+      { key: 'vehicle', label: 'Vehicle Insurance', icon: Car },
+    ],
+  },
+  {
+    label: 'Sales & Inventory',
+    tabs: [
+      { key: 'stock', label: 'Stock', icon: Smartphone },
+      { key: 'sales', label: 'Sales', icon: ShoppingBag, dateRange: true },
+      { key: 'billing', label: 'Billing', icon: FileText, dateRange: true },
+    ],
+  },
+  {
+    label: 'Finance',
+    tabs: [
+      { key: 'credit', label: 'Credit', icon: Wallet },
+      { key: 'expense', label: 'Expenses', icon: Receipt, dateRange: true },
+    ],
+  },
+  {
+    label: 'People',
+    tabs: [
+      { key: 'employee', label: 'Employees', icon: UserCheck },
+      { key: 'attendance', label: 'Attendance', icon: CalendarCheck, dateRange: true },
+    ],
+  },
+  {
+    label: 'Other',
+    tabs: [
+      { key: 'lms', label: 'LMS', icon: GraduationCap },
+    ],
+  },
 ];
+
+const ALL_TABS = TAB_GROUPS.flatMap((g) => g.tabs);
+const TAB_BY_KEY = Object.fromEntries(ALL_TABS.map((t) => [t.key, t]));
+
+// ─── Reusable UI ─────────────────────────────────────────────────────────────
+
+function SummaryCard({ label, value, color = 'blue' }) {
+  const colorMap = {
+    blue: 'bg-blue-50 text-blue-700',
+    green: 'bg-green-50 text-green-700',
+    purple: 'bg-purple-50 text-purple-700',
+    amber: 'bg-amber-50 text-amber-700',
+    red: 'bg-red-50 text-red-700',
+    indigo: 'bg-indigo-50 text-indigo-700',
+    gray: 'bg-gray-50 text-gray-700',
+  };
+  const bg = colorMap[color]?.split(' ')[0] || 'bg-blue-50';
+  const text = colorMap[color]?.split(' ')[1] || 'text-blue-700';
+  return (
+    <div className={`rounded-lg ${bg} p-5`}>
+      <p className="text-sm font-medium text-gray-600">{label}</p>
+      <p className={`text-2xl font-bold ${text}`}>{value}</p>
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, message }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+      <Icon className="mb-2 h-10 w-10 text-gray-300" />
+      <p className="text-sm">{message}</p>
+    </div>
+  );
+}
+
+function DataTable({ columns, rows, emptyIcon, emptyMessage }) {
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <EmptyState icon={emptyIcon} message={emptyMessage} />
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              {columns.map((c, i) => (
+                <th
+                  key={i}
+                  className={`px-6 py-3 text-${c.align || 'left'} text-xs font-medium uppercase tracking-wider text-gray-500`}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {rows.map((row, idx) => (
+              <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                {columns.map((c, i) => (
+                  <td
+                    key={i}
+                    className={`whitespace-nowrap px-6 py-4 text-sm ${c.cellClass || 'text-gray-900'}`}
+                  >
+                    {c.render ? c.render(row) : row[c.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 // ─── Reports Page ───────────────────────────────────────────────────────────
 
@@ -62,8 +191,10 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('premium');
   const [dateRange, setDateRange] = useState(getDefaultDateRange);
 
-  // ── Queries ──
+  const tabConfig = TAB_BY_KEY[activeTab];
+  const showDateRange = !!tabConfig?.dateRange;
 
+  // ── Insurance queries ──
   const premiumQuery = useQuery({
     queryKey: ['reports', 'premium-collection', dateRange],
     queryFn: async () => {
@@ -104,16 +235,50 @@ export default function ReportsPage() {
     enabled: activeTab === 'scheme',
   });
 
-  // ── Derived Data ──
+  // ── Module queries (gated by activeTab to avoid waste) ──
+  const vehicleQuery = useVehicleInsurances();
+  const stockQuery = useStocks();
+  const salesQuery = useSales(
+    showDateRange && activeTab === 'sales'
+      ? { from: dateRange.startDate, to: dateRange.endDate }
+      : {}
+  );
+  const expenseQuery = useExpenses(
+    showDateRange && activeTab === 'expense'
+      ? { from: dateRange.startDate, to: dateRange.endDate }
+      : {}
+  );
+  const billingQuery = useBillings(
+    showDateRange && activeTab === 'billing'
+      ? { from: dateRange.startDate, to: dateRange.endDate }
+      : {}
+  );
+  const creditQuery = useCredits();
+  const employeeQuery = useAllEmployees();
+  const attendanceQuery = useAttendance(
+    activeTab === 'attendance'
+      ? { from: dateRange.startDate, to: dateRange.endDate }
+      : {}
+  );
+  const lmsQuery = useLMSEntries();
 
+  // ── Derived Data ──
   const premiumResult = premiumQuery.data?.data || {};
   const premiumData = premiumResult.report || [];
   const policyData = policyQuery.data?.data || [];
   const customerData = customerQuery.data?.data || [];
   const schemeData = schemeQuery.data?.data || [];
+  const vehicleData = vehicleQuery.data?.data || [];
+  const stockData = stockQuery.data?.data || stockQuery.data || [];
+  const salesData = salesQuery.data?.data || salesQuery.data || [];
+  const expenseData = expenseQuery.data?.data || expenseQuery.data || [];
+  const billingData = billingQuery.data?.data || billingQuery.data || [];
+  const creditData = creditQuery.data?.data || creditQuery.data || [];
+  const employeeData = employeeQuery.data?.data || employeeQuery.data || [];
+  const attendanceData = attendanceQuery.data?.data || [];
+  const lmsData = lmsQuery.data?.data || lmsQuery.data || [];
 
   // ── Summaries ──
-
   const premiumSummary = useMemo(() => {
     if (premiumResult.summary) return premiumResult.summary;
     const totalAmount = premiumData.reduce((s, r) => s + (r.totalAmount || 0), 0);
@@ -140,8 +305,93 @@ export default function ReportsPage() {
     return { totalSumAssured, totalPremium, totalPolicies };
   }, [schemeData]);
 
-  // ── CSV Export Handlers ──
+  const vehicleSummary = useMemo(() => {
+    const total = vehicleData.length;
+    const today = new Date();
+    const in30 = new Date();
+    in30.setDate(today.getDate() + 30);
+    let active = 0, expired = 0, expiringSoon = 0;
+    vehicleData.forEach((r) => {
+      const exp = r.policyExpiryDate ? new Date(r.policyExpiryDate) : null;
+      if (r.status === 'expired' || (exp && exp < today)) expired += 1;
+      else {
+        active += 1;
+        if (exp && exp <= in30) expiringSoon += 1;
+      }
+    });
+    return { total, active, expired, expiringSoon };
+  }, [vehicleData]);
 
+  const stockSummary = useMemo(() => {
+    const total = stockData.length;
+    const inStock = stockData.filter((s) => s.status === 'in_stock').length;
+    const sold = stockData.filter((s) => s.status === 'sold').length;
+    const purchaseValue = stockData
+      .filter((s) => s.status === 'in_stock')
+      .reduce((sum, s) => sum + (s.purchasePrice || 0), 0);
+    const sellingValue = stockData
+      .filter((s) => s.status === 'in_stock')
+      .reduce((sum, s) => sum + (s.sellingPrice || 0), 0);
+    const revenue = stockData
+      .filter((s) => s.status === 'sold')
+      .reduce((sum, s) => sum + (s.soldTo?.finalPrice || s.sellingPrice || 0), 0);
+    return { total, inStock, sold, purchaseValue, sellingValue, revenue };
+  }, [stockData]);
+
+  const salesSummary = useMemo(() => {
+    const totalAmount = salesData.reduce((s, r) => s + (r.amount || 0), 0);
+    const totalQty = salesData.reduce((s, r) => s + (r.quantity || 0), 0);
+    return { totalAmount, totalQty, count: salesData.length };
+  }, [salesData]);
+
+  const expenseSummary = useMemo(() => {
+    const totalAmount = expenseData.reduce((s, r) => s + (r.amount || 0), 0);
+    const byCategory = expenseData.reduce((acc, r) => {
+      acc[r.category] = (acc[r.category] || 0) + (r.amount || 0);
+      return acc;
+    }, {});
+    return { totalAmount, count: expenseData.length, byCategory };
+  }, [expenseData]);
+
+  const billingSummary = useMemo(() => {
+    const totalAmount = billingData.reduce((s, r) => s + (r.totalAmount || 0), 0);
+    const counts = billingData.reduce(
+      (acc, r) => {
+        acc[r.type] = (acc[r.type] || 0) + 1;
+        return acc;
+      },
+      { invoice: 0, quotation: 0, receipt: 0 }
+    );
+    return { totalAmount, count: billingData.length, ...counts };
+  }, [billingData]);
+
+  const creditSummary = useMemo(() => {
+    const totalIssued = creditData.reduce((s, r) => s + (r.totalAmount || 0), 0);
+    const outstanding = creditData.reduce((s, r) => s + (r.balanceAmount || 0), 0);
+    const open = creditData.filter((r) => r.status === 'open').length;
+    const closed = creditData.filter((r) => r.status === 'closed').length;
+    return { totalIssued, outstanding, open, closed, count: creditData.length };
+  }, [creditData]);
+
+  const employeeSummary = useMemo(() => {
+    const total = employeeData.length;
+    const active = employeeData.filter((e) => e.isActive).length;
+    const totalSalary = employeeData
+      .filter((e) => e.isActive)
+      .reduce((s, e) => s + (e.salary || 0), 0);
+    return { total, active, inactive: total - active, totalSalary };
+  }, [employeeData]);
+
+  const attendanceSummary = useMemo(() => {
+    const counts = { present: 0, absent: 0, 'half-day': 0, leave: 0 };
+    attendanceData.forEach((r) => {
+      if (counts[r.status] !== undefined) counts[r.status] += 1;
+    });
+    const totalExpenses = attendanceData.reduce((s, r) => s + (r.expenses || 0), 0);
+    return { ...counts, totalExpenses, total: attendanceData.length };
+  }, [attendanceData]);
+
+  // ── CSV Export Handlers ──
   const handleExport = () => {
     switch (activeTab) {
       case 'premium':
@@ -197,31 +447,176 @@ export default function ReportsPage() {
           ])
         );
         break;
+      case 'vehicle':
+        exportCSV(
+          'vehicle-insurance.csv',
+          ['Customer', 'Vehicle No', 'Brand/Model', 'Insurance Type', 'Company', 'Policy No', 'Expiry', 'Status'],
+          vehicleData.map((r) => [
+            r.customer?.name || '',
+            r.vehicleNumber || '',
+            `${r.vehicleBrand || ''} ${r.model || ''}`.trim(),
+            r.insuranceType || '',
+            r.policyCompany || '',
+            r.policyNumber || '',
+            formatDate(r.policyExpiryDate),
+            r.status || '',
+          ])
+        );
+        break;
+      case 'stock':
+        exportCSV(
+          'stock-report.csv',
+          ['Code', 'Category', 'Brand', 'Model', 'Purchase Price', 'Selling Price', 'Status', 'Sold Date'],
+          stockData.map((r) => [
+            r.uniqueCode || '',
+            r.category || '',
+            r.brand || '',
+            r.model || '',
+            r.purchasePrice || 0,
+            r.sellingPrice || 0,
+            r.status || '',
+            r.soldAt ? formatDate(r.soldAt) : '',
+          ])
+        );
+        break;
+      case 'sales':
+        exportCSV(
+          'sales-report.csv',
+          ['Date', 'Category', 'Quantity', 'Unit Price', 'Amount', 'Customer', 'Payment Method'],
+          salesData.map((r) => [
+            formatDate(r.date),
+            r.categoryName || '',
+            r.quantity || 0,
+            r.unitPrice || 0,
+            r.amount || 0,
+            r.customerName || '',
+            r.paymentMethod || '',
+          ])
+        );
+        break;
+      case 'expense':
+        exportCSV(
+          'expense-report.csv',
+          ['Date', 'Title', 'Category', 'Amount', 'Payment Method', 'Notes'],
+          expenseData.map((r) => [
+            formatDate(r.date),
+            r.title || '',
+            r.category || '',
+            r.amount || 0,
+            r.paymentMethod || '',
+            r.notes || '',
+          ])
+        );
+        break;
+      case 'billing':
+        exportCSV(
+          'billing-report.csv',
+          ['Number', 'Type', 'Date', 'Customer', 'Phone', 'Subtotal', 'Total Amount'],
+          billingData.map((r) => [
+            r.number || '',
+            r.type || '',
+            formatDate(r.date),
+            r.customer?.name || '',
+            r.customer?.phone || '',
+            r.subtotal || 0,
+            r.totalAmount || 0,
+          ])
+        );
+        break;
+      case 'credit':
+        exportCSV(
+          'credit-report.csv',
+          ['Customer', 'Reason', 'Total Amount', 'Balance', 'Due Date', 'Status'],
+          creditData.map((r) => [
+            r.customer?.name || '',
+            r.reason || '',
+            r.totalAmount || 0,
+            r.balanceAmount || 0,
+            formatDate(r.dueDate),
+            r.status || '',
+          ])
+        );
+        break;
+      case 'employee':
+        exportCSV(
+          'employee-report.csv',
+          ['Name', 'Phone', 'Designation', 'Salary', 'Date of Joining', 'Active'],
+          employeeData.map((r) => [
+            r.name || '',
+            r.phone || '',
+            r.designation || '',
+            r.salary || 0,
+            formatDate(r.dateOfJoining),
+            r.isActive ? 'Yes' : 'No',
+          ])
+        );
+        break;
+      case 'attendance':
+        exportCSV(
+          'attendance-report.csv',
+          ['Date', 'Employee', 'Status', 'Morning In', 'Afternoon Out', 'After Lunch In', 'Night Out', 'Expenses', 'Notes'],
+          attendanceData.map((r) => [
+            formatDate(r.date),
+            r.employee?.name || '',
+            r.status || '',
+            r.morningIn || '',
+            r.afternoonOut || '',
+            r.afterLunchIn || '',
+            r.nightOut || '',
+            r.expenses || 0,
+            r.notes || '',
+          ])
+        );
+        break;
+      case 'lms':
+        exportCSV(
+          'lms-report.csv',
+          ['Title', 'Link', 'User ID', 'Message'],
+          lmsData.map((r) => [r.title || '', r.link || '', r.userId || '', r.message || ''])
+        );
+        break;
       default:
         break;
     }
   };
 
-  // ── Loading / Error helpers ──
-
-  const queryForTab = {
+  // ── Loading / data state per tab ──
+  const QUERY_BY_TAB = {
     premium: premiumQuery,
     policy: policyQuery,
     customer: customerQuery,
     scheme: schemeQuery,
-  }[activeTab];
-
+    vehicle: vehicleQuery,
+    stock: stockQuery,
+    sales: salesQuery,
+    expense: expenseQuery,
+    billing: billingQuery,
+    credit: creditQuery,
+    employee: employeeQuery,
+    attendance: attendanceQuery,
+    lms: lmsQuery,
+  };
+  const queryForTab = QUERY_BY_TAB[activeTab];
   const isLoading = queryForTab?.isLoading;
   const isError = queryForTab?.isError;
   const errorMessage = queryForTab?.error?.response?.data?.message || 'Failed to load report data';
 
-  // ── Check if current tab has data for export ──
-  const hasData = {
-    premium: premiumData.length > 0,
-    policy: policyData.length > 0,
-    customer: customerData.length > 0,
-    scheme: schemeData.length > 0,
-  }[activeTab];
+  const DATA_BY_TAB = {
+    premium: premiumData,
+    policy: policyData,
+    customer: customerData,
+    scheme: schemeData,
+    vehicle: vehicleData,
+    stock: stockData,
+    sales: salesData,
+    expense: expenseData,
+    billing: billingData,
+    credit: creditData,
+    employee: employeeData,
+    attendance: attendanceData,
+    lms: lmsData,
+  };
+  const hasData = (DATA_BY_TAB[activeTab] || []).length > 0;
 
   return (
     <div className="space-y-6">
@@ -238,50 +633,57 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      {/* Date Range Filter */}
-      <div className="flex flex-wrap items-end gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
-          <input
-            type="date"
-            value={dateRange.startDate}
-            onChange={(e) => setDateRange((prev) => ({ ...prev, startDate: e.target.value }))}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+      {/* Date Range Filter (only when applicable) */}
+      {showDateRange && (
+        <div className="flex flex-wrap items-end gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={dateRange.startDate}
+              onChange={(e) => setDateRange((prev) => ({ ...prev, startDate: e.target.value }))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+            <input
+              type="date"
+              value={dateRange.endDate}
+              onChange={(e) => setDateRange((prev) => ({ ...prev, endDate: e.target.value }))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
-          <input
-            type="date"
-            value={dateRange.endDate}
-            onChange={(e) => setDateRange((prev) => ({ ...prev, endDate: e.target.value }))}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-      </div>
+      )}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex gap-6 overflow-x-auto" aria-label="Report tabs">
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.key;
-            const TabIcon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <TabIcon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
+      {/* Grouped Tabs */}
+      <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm space-y-3">
+        {TAB_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">{group.label}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {group.tabs.map((tab) => {
+                const isActive = activeTab === tab.key;
+                const TabIcon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <TabIcon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Tab Content */}
@@ -298,346 +700,377 @@ export default function ReportsPage() {
           {/* ── Premium Collection ── */}
           {activeTab === 'premium' && (
             <div className="space-y-4">
-              {/* Summary Cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="rounded-lg bg-green-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Amount Collected</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(premiumSummary.totalAmount)}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-blue-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Payments</p>
-                  <p className="text-2xl font-bold text-blue-700">
-                    {premiumSummary.totalPayments}
-                  </p>
-                </div>
+                <SummaryCard label="Total Amount Collected" value={formatCurrency(premiumSummary.totalAmount)} color="green" />
+                <SummaryCard label="Total Payments" value={premiumSummary.totalPayments} color="blue" />
               </div>
-
-              {/* Table */}
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                {premiumData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                    <BarChart3 className="mb-2 h-10 w-10 text-gray-300" />
-                    <p className="text-sm">No collection data for this period</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Total Amount
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Payment Count
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {[...premiumData]
-                          .sort((a, b) => {
-                            const da = new Date(a._id || a.date);
-                            const db = new Date(b._id || b.date);
-                            return db - da;
-                          })
-                          .map((row, idx) => (
-                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                                {formatDate(row._id || row.date)}
-                              </td>
-                              <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                {formatCurrency(row.totalAmount)}
-                              </td>
-                              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                {row.paymentCount || row.count || 0}
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              <DataTable
+                emptyIcon={BarChart3}
+                emptyMessage="No collection data for this period"
+                columns={[
+                  { label: 'Date', render: (r) => formatDate(r._id || r.date) },
+                  { label: 'Total Amount', render: (r) => formatCurrency(r.totalAmount), cellClass: 'font-medium text-gray-900' },
+                  { label: 'Payment Count', render: (r) => r.paymentCount || r.count || 0, cellClass: 'text-gray-600' },
+                ]}
+                rows={[...premiumData].sort((a, b) => new Date(b._id || b.date) - new Date(a._id || a.date))}
+              />
             </div>
           )}
 
           {/* ── Policy-wise ── */}
           {activeTab === 'policy' && (
             <div className="space-y-4">
-              {/* Summary Cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-lg bg-blue-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Policies</p>
-                  <p className="text-2xl font-bold text-blue-700">{policySummary.count}</p>
-                </div>
-                <div className="rounded-lg bg-purple-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Premium</p>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {formatCurrency(policySummary.totalPremium)}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-green-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Paid</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(policySummary.totalPaid)}
-                  </p>
-                </div>
+                <SummaryCard label="Total Policies" value={policySummary.count} color="blue" />
+                <SummaryCard label="Total Premium" value={formatCurrency(policySummary.totalPremium)} color="purple" />
+                <SummaryCard label="Total Paid" value={formatCurrency(policySummary.totalPaid)} color="green" />
               </div>
-
-              {/* Table */}
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                {policyData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                    <FileText className="mb-2 h-10 w-10 text-gray-300" />
-                    <p className="text-sm">No policy data for this period</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Policy Number
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Customer Name
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Premium Amount
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Total Paid
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Payments
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Last Payment
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {policyData.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-blue-600">
-                              {row.policyNumber || '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                              {row.customerName || row.customer?.name || '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                              {formatCurrency(row.premiumAmount)}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-green-700">
-                              {formatCurrency(row.totalPaid)}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {row.paymentCount || 0}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {formatDate(row.lastPaymentDate)}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm">
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                  row.status === 'active'
-                                    ? 'bg-green-100 text-green-800'
-                                    : row.status === 'matured'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : row.status === 'lapsed'
-                                    ? 'bg-red-100 text-red-800'
-                                    : row.status === 'surrendered'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {row.status
-                                  ? row.status.charAt(0).toUpperCase() + row.status.slice(1)
-                                  : '-'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              <DataTable
+                emptyIcon={FileText}
+                emptyMessage="No policy data for this period"
+                columns={[
+                  { label: 'Policy Number', render: (r) => r.policyNumber || '-', cellClass: 'font-medium text-blue-600' },
+                  { label: 'Customer', render: (r) => r.customerName || r.customer?.name || '-' },
+                  { label: 'Premium', render: (r) => formatCurrency(r.premiumAmount) },
+                  { label: 'Paid', render: (r) => formatCurrency(r.totalPaid), cellClass: 'font-medium text-green-700' },
+                  { label: 'Payments', render: (r) => r.paymentCount || 0, cellClass: 'text-gray-600' },
+                  { label: 'Last Payment', render: (r) => formatDate(r.lastPaymentDate), cellClass: 'text-gray-600' },
+                  {
+                    label: 'Status',
+                    render: (r) => (
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        r.status === 'active' ? 'bg-green-100 text-green-800' :
+                        r.status === 'matured' ? 'bg-blue-100 text-blue-800' :
+                        r.status === 'lapsed' ? 'bg-red-100 text-red-800' :
+                        r.status === 'surrendered' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : '-'}
+                      </span>
+                    ),
+                  },
+                ]}
+                rows={policyData}
+              />
             </div>
           )}
 
           {/* ── Customer-wise ── */}
           {activeTab === 'customer' && (
             <div className="space-y-4">
-              {/* Summary Cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-lg bg-blue-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Customers</p>
-                  <p className="text-2xl font-bold text-blue-700">{customerSummary.count}</p>
-                </div>
-                <div className="rounded-lg bg-purple-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Policies</p>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {customerSummary.totalPolicies}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-green-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Paid</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(customerSummary.totalPaid)}
-                  </p>
-                </div>
+                <SummaryCard label="Total Customers" value={customerSummary.count} color="blue" />
+                <SummaryCard label="Total Policies" value={customerSummary.totalPolicies} color="purple" />
+                <SummaryCard label="Total Paid" value={formatCurrency(customerSummary.totalPaid)} color="green" />
               </div>
-
-              {/* Table */}
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                {customerData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                    <Users className="mb-2 h-10 w-10 text-gray-300" />
-                    <p className="text-sm">No customer data available</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Customer Name
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Phone
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Policy Count
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Total Paid
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Payment Count
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {customerData.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                              {row.customerName || row.name || '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {row.phone || '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {row.policyCount || 0}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-green-700">
-                              {formatCurrency(row.totalPaid)}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {row.paymentCount || 0}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              <DataTable
+                emptyIcon={Users}
+                emptyMessage="No customer data available"
+                columns={[
+                  { label: 'Customer', render: (r) => r.customerName || r.name || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Phone', render: (r) => r.phone || '-', cellClass: 'text-gray-600' },
+                  { label: 'Policy Count', render: (r) => r.policyCount || 0, cellClass: 'text-gray-600' },
+                  { label: 'Total Paid', render: (r) => formatCurrency(r.totalPaid), cellClass: 'font-medium text-green-700' },
+                  { label: 'Payment Count', render: (r) => r.paymentCount || 0, cellClass: 'text-gray-600' },
+                ]}
+                rows={customerData}
+              />
             </div>
           )}
 
           {/* ── Scheme-wise ── */}
           {activeTab === 'scheme' && (
             <div className="space-y-4">
-              {/* Summary Cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-lg bg-blue-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Policies</p>
-                  <p className="text-2xl font-bold text-blue-700">{schemeSummary.totalPolicies}</p>
-                </div>
-                <div className="rounded-lg bg-purple-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Sum Assured</p>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {formatCurrency(schemeSummary.totalSumAssured)}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-green-50 p-5">
-                  <p className="text-sm font-medium text-gray-600">Total Premium</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {formatCurrency(schemeSummary.totalPremium)}
-                  </p>
-                </div>
+                <SummaryCard label="Total Policies" value={schemeSummary.totalPolicies} color="blue" />
+                <SummaryCard label="Total Sum Assured" value={formatCurrency(schemeSummary.totalSumAssured)} color="purple" />
+                <SummaryCard label="Total Premium" value={formatCurrency(schemeSummary.totalPremium)} color="green" />
               </div>
+              <DataTable
+                emptyIcon={Building2}
+                emptyMessage="No scheme data available"
+                columns={[
+                  { label: 'Scheme', render: (r) => r.schemeName || r.name || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Type', render: (r) => (r.type ? r.type.charAt(0).toUpperCase() + r.type.slice(1) : '-'), cellClass: 'text-gray-600' },
+                  { label: 'Company', render: (r) => r.company || '-', cellClass: 'text-gray-600' },
+                  { label: 'Policies', render: (r) => r.policyCount || 0, cellClass: 'text-gray-600' },
+                  { label: 'Sum Assured', render: (r) => formatCurrency(r.totalSumAssured) },
+                  { label: 'Premium', render: (r) => formatCurrency(r.totalPremium), cellClass: 'font-medium text-green-700' },
+                ]}
+                rows={schemeData}
+              />
+            </div>
+          )}
 
-              {/* Table */}
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                {schemeData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                    <Building2 className="mb-2 h-10 w-10 text-gray-300" />
-                    <p className="text-sm">No scheme data available</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Scheme Name
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Type
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Company
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Policy Count
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Total Sum Assured
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            Total Premium
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {schemeData.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                              {row.schemeName || row.name || '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {row.type
-                                ? row.type.charAt(0).toUpperCase() + row.type.slice(1)
-                                : '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {row.company || '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                              {row.policyCount || 0}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                              {formatCurrency(row.totalSumAssured)}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-green-700">
-                              {formatCurrency(row.totalPremium)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+          {/* ── Vehicle Insurance ── */}
+          {activeTab === 'vehicle' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <SummaryCard label="Total Policies" value={vehicleSummary.total} color="blue" />
+                <SummaryCard label="Active" value={vehicleSummary.active} color="green" />
+                <SummaryCard label="Expiring (30 days)" value={vehicleSummary.expiringSoon} color="amber" />
+                <SummaryCard label="Expired" value={vehicleSummary.expired} color="red" />
               </div>
+              <DataTable
+                emptyIcon={Car}
+                emptyMessage="No vehicle insurance records"
+                columns={[
+                  { label: 'Customer', render: (r) => r.customer?.name || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Vehicle No', render: (r) => r.vehicleNumber || '-', cellClass: 'font-mono text-gray-700' },
+                  { label: 'Brand / Model', render: (r) => `${r.vehicleBrand || ''} ${r.model || ''}`.trim() || '-' },
+                  { label: 'Type', render: (r) => r.insuranceType || '-', cellClass: 'text-gray-600' },
+                  { label: 'Company', render: (r) => r.policyCompany || '-', cellClass: 'text-gray-600' },
+                  { label: 'Policy No', render: (r) => r.policyNumber || '-', cellClass: 'text-blue-600' },
+                  { label: 'Expiry', render: (r) => formatDate(r.policyExpiryDate) },
+                  {
+                    label: 'Status',
+                    render: (r) => (
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        r.status === 'active' ? 'bg-green-100 text-green-800' :
+                        r.status === 'expired' ? 'bg-red-100 text-red-800' :
+                        r.status === 'renewed' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : '-'}
+                      </span>
+                    ),
+                  },
+                ]}
+                rows={vehicleData}
+              />
+            </div>
+          )}
+
+          {/* ── Stock ── */}
+          {activeTab === 'stock' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <SummaryCard label="Total Items" value={stockSummary.total} color="blue" />
+                <SummaryCard label="In Stock" value={stockSummary.inStock} color="green" />
+                <SummaryCard label="Sold" value={stockSummary.sold} color="purple" />
+                <SummaryCard label="Stock Cost" value={formatCurrency(stockSummary.purchaseValue)} color="amber" />
+                <SummaryCard label="Stock Value" value={formatCurrency(stockSummary.sellingValue)} color="indigo" />
+                <SummaryCard label="Sales Revenue" value={formatCurrency(stockSummary.revenue)} color="green" />
+              </div>
+              <DataTable
+                emptyIcon={Smartphone}
+                emptyMessage="No stock items"
+                columns={[
+                  { label: 'Code', render: (r) => r.uniqueCode || '-', cellClass: 'font-mono text-gray-700' },
+                  { label: 'Category', render: (r) => (r.category || '').replace('_', ' '), cellClass: 'text-gray-600 capitalize' },
+                  { label: 'Brand', render: (r) => r.brand || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Model', render: (r) => r.model || '-', cellClass: 'text-gray-700' },
+                  { label: 'Purchase', render: (r) => formatCurrency(r.purchasePrice), cellClass: 'text-gray-600' },
+                  { label: 'Selling', render: (r) => formatCurrency(r.sellingPrice), cellClass: 'font-medium text-gray-900' },
+                  {
+                    label: 'Status',
+                    render: (r) => (
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        r.status === 'in_stock' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {r.status === 'in_stock' ? 'In Stock' : 'Sold'}
+                      </span>
+                    ),
+                  },
+                  { label: 'Sold On', render: (r) => (r.soldAt ? formatDate(r.soldAt) : '-'), cellClass: 'text-gray-600' },
+                ]}
+                rows={stockData}
+              />
+            </div>
+          )}
+
+          {/* ── Sales ── */}
+          {activeTab === 'sales' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <SummaryCard label="Total Sales" value={salesSummary.count} color="blue" />
+                <SummaryCard label="Total Quantity" value={salesSummary.totalQty} color="purple" />
+                <SummaryCard label="Total Amount" value={formatCurrency(salesSummary.totalAmount)} color="green" />
+              </div>
+              <DataTable
+                emptyIcon={ShoppingBag}
+                emptyMessage="No sales for this period"
+                columns={[
+                  { label: 'Date', render: (r) => formatDate(r.date) },
+                  { label: 'Category', render: (r) => r.categoryName || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Qty', render: (r) => r.quantity || 0, cellClass: 'text-gray-600' },
+                  { label: 'Unit Price', render: (r) => formatCurrency(r.unitPrice), cellClass: 'text-gray-600' },
+                  { label: 'Amount', render: (r) => formatCurrency(r.amount), cellClass: 'font-medium text-green-700' },
+                  { label: 'Customer', render: (r) => r.customerName || '-', cellClass: 'text-gray-600' },
+                  { label: 'Method', render: (r) => (r.paymentMethod || '').replace('_', ' '), cellClass: 'text-gray-600 capitalize' },
+                ]}
+                rows={salesData}
+              />
+            </div>
+          )}
+
+          {/* ── Billing ── */}
+          {activeTab === 'billing' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <SummaryCard label="Total Documents" value={billingSummary.count} color="blue" />
+                <SummaryCard label="Invoices" value={billingSummary.invoice} color="green" />
+                <SummaryCard label="Quotations" value={billingSummary.quotation} color="amber" />
+                <SummaryCard label="Total Amount" value={formatCurrency(billingSummary.totalAmount)} color="purple" />
+              </div>
+              <DataTable
+                emptyIcon={FileText}
+                emptyMessage="No billing documents for this period"
+                columns={[
+                  { label: 'Number', render: (r) => r.number || '-', cellClass: 'font-mono font-medium text-blue-600' },
+                  {
+                    label: 'Type',
+                    render: (r) => (
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        r.type === 'invoice' ? 'bg-green-100 text-green-800' :
+                        r.type === 'quotation' ? 'bg-amber-100 text-amber-800' :
+                        r.type === 'receipt' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {r.type ? r.type.charAt(0).toUpperCase() + r.type.slice(1) : '-'}
+                      </span>
+                    ),
+                  },
+                  { label: 'Date', render: (r) => formatDate(r.date) },
+                  { label: 'Customer', render: (r) => r.customer?.name || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Phone', render: (r) => r.customer?.phone || '-', cellClass: 'text-gray-600' },
+                  { label: 'Subtotal', render: (r) => formatCurrency(r.subtotal), cellClass: 'text-gray-600' },
+                  { label: 'Total', render: (r) => formatCurrency(r.totalAmount), cellClass: 'font-medium text-green-700' },
+                ]}
+                rows={billingData}
+              />
+            </div>
+          )}
+
+          {/* ── Credit ── */}
+          {activeTab === 'credit' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <SummaryCard label="Total Credits" value={creditSummary.count} color="blue" />
+                <SummaryCard label="Open" value={creditSummary.open} color="amber" />
+                <SummaryCard label="Closed" value={creditSummary.closed} color="green" />
+                <SummaryCard label="Outstanding" value={formatCurrency(creditSummary.outstanding)} color="red" />
+              </div>
+              <DataTable
+                emptyIcon={Wallet}
+                emptyMessage="No credit records"
+                columns={[
+                  { label: 'Customer', render: (r) => r.customer?.name || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Reason', render: (r) => r.reason || '-', cellClass: 'text-gray-700' },
+                  { label: 'Total', render: (r) => formatCurrency(r.totalAmount), cellClass: 'text-gray-600' },
+                  { label: 'Balance', render: (r) => formatCurrency(r.balanceAmount), cellClass: 'font-medium text-red-700' },
+                  { label: 'Due Date', render: (r) => formatDate(r.dueDate) },
+                  {
+                    label: 'Status',
+                    render: (r) => (
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        r.status === 'open' ? 'bg-amber-100 text-amber-800' :
+                        r.status === 'closed' ? 'bg-green-100 text-green-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : '-'}
+                      </span>
+                    ),
+                  },
+                ]}
+                rows={creditData}
+              />
+            </div>
+          )}
+
+          {/* ── Employees ── */}
+          {activeTab === 'employee' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <SummaryCard label="Total Employees" value={employeeSummary.total} color="blue" />
+                <SummaryCard label="Active" value={employeeSummary.active} color="green" />
+                <SummaryCard label="Inactive" value={employeeSummary.inactive} color="gray" />
+                <SummaryCard label="Total Salary" value={formatCurrency(employeeSummary.totalSalary)} color="purple" />
+              </div>
+              <DataTable
+                emptyIcon={UserCheck}
+                emptyMessage="No employees"
+                columns={[
+                  { label: 'Name', render: (r) => r.name || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Phone', render: (r) => r.phone || '-', cellClass: 'text-gray-600' },
+                  { label: 'Designation', render: (r) => r.designation || '-', cellClass: 'text-gray-700' },
+                  { label: 'Salary', render: (r) => formatCurrency(r.salary), cellClass: 'font-medium text-gray-900' },
+                  { label: 'Joined', render: (r) => formatDate(r.dateOfJoining), cellClass: 'text-gray-600' },
+                  {
+                    label: 'Status',
+                    render: (r) => (
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        r.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {r.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    ),
+                  },
+                ]}
+                rows={employeeData}
+              />
+            </div>
+          )}
+
+          {/* ── Attendance ── */}
+          {activeTab === 'attendance' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                <SummaryCard label="Total Records" value={attendanceSummary.total} color="blue" />
+                <SummaryCard label="Present" value={attendanceSummary.present} color="green" />
+                <SummaryCard label="Half Day" value={attendanceSummary['half-day']} color="amber" />
+                <SummaryCard label="Absent / Leave" value={attendanceSummary.absent + attendanceSummary.leave} color="red" />
+                <SummaryCard label="Total Expenses" value={formatCurrency(attendanceSummary.totalExpenses)} color="purple" />
+              </div>
+              <DataTable
+                emptyIcon={CalendarCheck}
+                emptyMessage="No attendance records for this period"
+                columns={[
+                  { label: 'Date', render: (r) => formatDate(r.date) },
+                  { label: 'Employee', render: (r) => r.employee?.name || '-', cellClass: 'font-medium text-gray-900' },
+                  {
+                    label: 'Status',
+                    render: (r) => (
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        r.status === 'present' ? 'bg-green-100 text-green-800' :
+                        r.status === 'half-day' ? 'bg-amber-100 text-amber-800' :
+                        r.status === 'absent' ? 'bg-red-100 text-red-800' :
+                        r.status === 'leave' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : '-'}
+                      </span>
+                    ),
+                  },
+                  { label: 'Morning', render: (r) => r.morningIn || '-', cellClass: 'font-mono text-gray-600' },
+                  { label: 'Afternoon Out', render: (r) => r.afternoonOut || '-', cellClass: 'font-mono text-gray-600' },
+                  { label: 'After Lunch', render: (r) => r.afterLunchIn || '-', cellClass: 'font-mono text-gray-600' },
+                  { label: 'Night Out', render: (r) => r.nightOut || '-', cellClass: 'font-mono text-gray-600' },
+                  { label: 'Expenses', render: (r) => (r.expenses ? formatCurrency(r.expenses) : '-'), cellClass: 'text-gray-600' },
+                ]}
+                rows={attendanceData}
+              />
+            </div>
+          )}
+
+          {/* ── LMS ── */}
+          {activeTab === 'lms' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <SummaryCard label="Total Entries" value={lmsData.length} color="blue" />
+                <SummaryCard label="With Links" value={lmsData.filter((r) => r.link).length} color="purple" />
+              </div>
+              <DataTable
+                emptyIcon={GraduationCap}
+                emptyMessage="No LMS entries"
+                columns={[
+                  { label: 'Title', render: (r) => r.title || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Link', render: (r) => r.link || '-', cellClass: 'text-blue-600 truncate max-w-xs' },
+                  { label: 'User ID', render: (r) => r.userId || '-', cellClass: 'text-gray-600' },
+                  { label: 'Notes', render: (r) => r.message || '-', cellClass: 'text-gray-600' },
+                ]}
+                rows={lmsData}
+              />
             </div>
           )}
         </>
