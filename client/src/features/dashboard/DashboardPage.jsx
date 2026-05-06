@@ -14,6 +14,14 @@ import {
   ArrowRight,
   X,
   RotateCcw,
+  Car,
+  TrendingUp,
+  TrendingDown,
+  Receipt,
+  BellRing,
+  Repeat,
+  BookOpen,
+  Wallet,
 } from 'lucide-react';
 import api from '../../lib/axios';
 import {
@@ -22,6 +30,10 @@ import {
   getDaysUntil,
   generateWhatsAppLink,
 } from '../../lib/utils';
+import { useSalesSummary } from '../sales/salesApi';
+import { useExpenseSummary } from '../expenses/expenseApi';
+import { useCustomReminders } from '../custom-reminders/customReminderApi';
+import { useCredits } from '../credits/creditApi';
 
 // ─── Stat Card ──────────────────────────────────────────────────────────────
 
@@ -49,6 +61,18 @@ const statCardConfig = {
     iconBg: 'bg-purple-100',
     iconColor: 'text-purple-600',
     valueColor: 'text-purple-700',
+  },
+  amber: {
+    bg: 'bg-amber-50',
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600',
+    valueColor: 'text-amber-700',
+  },
+  orange: {
+    bg: 'bg-orange-50',
+    iconBg: 'bg-orange-100',
+    iconColor: 'text-orange-600',
+    valueColor: 'text-orange-700',
   },
 };
 
@@ -282,58 +306,100 @@ export default function DashboardPage() {
   // ── Queries ──
 
   const {
-    data: statsData,
-    isLoading: statsLoading,
+    data: vehicleExpiringData,
+    isLoading: vehicleExpiringLoading,
   } = useQuery({
-    queryKey: ['dashboard', 'stats'],
+    queryKey: ['dashboard', 'vehicle-expiring'],
     queryFn: async () => {
-      const { data } = await api.get('/dashboard/stats');
+      const { data } = await api.get('/dashboard/vehicle-expiring');
       return data;
     },
   });
 
-  const {
-    data: overdueData,
-    isLoading: overdueLoading,
-  } = useQuery({
-    queryKey: ['dashboard', 'overdue'],
+  const { data: salesSummaryData, isLoading: salesLoading } = useSalesSummary({});
+  const { data: expenseSummaryData } = useExpenseSummary({});
+  const { data: customRemindersData, isLoading: customRemindersLoading } = useCustomReminders('true');
+
+  // Credit overdue + upcoming
+  const { data: creditOverdueData, isLoading: creditOverdueLoading } = useCredits({ status: 'overdue', limit: 50 });
+  const { data: creditOpenData, isLoading: creditOpenLoading } = useCredits({ status: 'open', limit: 50 });
+
+  const { data: bibleData } = useQuery({
+    queryKey: ['bible-verse', 'today'],
     queryFn: async () => {
-      const { data } = await api.get('/dashboard/overdue');
+      const { data } = await api.get('/bible-verse/today');
       return data;
     },
+    staleTime: 60 * 60 * 1000, // cache 1 hour
   });
+  const bibleVerse = bibleData?.data;
 
-  const {
-    data: remindersData,
-    isLoading: remindersLoading,
-  } = useQuery({
-    queryKey: ['dashboard', 'upcoming-reminders'],
-    queryFn: async () => {
-      const { data } = await api.get('/dashboard/upcoming-reminders', {
-        params: { days: 15 },
-      });
-      return data;
-    },
+  const vehicleExpiring = vehicleExpiringData?.data || [];
+  const customReminders = customRemindersData?.data || [];
+  const salesSummary = salesSummaryData?.data || {};
+  const totalExpenses = expenseSummaryData?.data?.total || 0;
+  const creditOverdue = creditOverdueData?.data || [];
+  // Upcoming = open credits due in next 30 days (not overdue)
+  const now = new Date();
+  const creditUpcoming = (creditOpenData?.data || []).filter((c) => {
+    const due = new Date(c.dueDate);
+    return due >= now && due <= new Date(now.getTime() + 30 * 86400000);
   });
-
-  const {
-    data: recentPoliciesData,
-    isLoading: recentLoading,
-  } = useQuery({
-    queryKey: ['dashboard', 'recent-policies'],
-    queryFn: async () => {
-      const { data } = await api.get('/dashboard/recent-policies');
-      return data;
-    },
-  });
-
-  const stats = statsData?.data || {};
-  const overdueItems = overdueData?.data || [];
-  const reminders = remindersData?.data || [];
-  const recentPolicies = recentPoliciesData?.data || [];
 
   return (
     <div className="space-y-6">
+      {/* ── Daily Bible Verse Scrolling Banner ── */}
+      {bibleVerse && (
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 shadow-lg">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="shrink-0 p-2 bg-white/20 rounded-lg">
+              <BookOpen className="w-5 h-5 text-white" />
+            </div>
+            <div className="overflow-hidden flex-1 min-w-0">
+              <div className="animate-marquee whitespace-nowrap">
+                <span className="text-sm font-semibold text-yellow-200 mr-4">
+                  {bibleVerse.reference}
+                </span>
+                <span className="text-sm text-white/90 mr-12">
+                  {bibleVerse.tamil}
+                </span>
+                <span className="text-sm font-semibold text-yellow-200 mr-4">
+                  {bibleVerse.reference}
+                </span>
+                <span className="text-sm text-white/90 mr-12">
+                  {bibleVerse.english}
+                </span>
+                <span className="text-sm font-semibold text-yellow-200 mr-4">
+                  {bibleVerse.reference}
+                </span>
+                <span className="text-sm text-white/90 mr-12">
+                  {bibleVerse.tamil}
+                </span>
+                <span className="text-sm font-semibold text-yellow-200 mr-4">
+                  {bibleVerse.reference}
+                </span>
+                <span className="text-sm text-white/90">
+                  {bibleVerse.english}
+                </span>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes marquee {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+            .animate-marquee {
+              display: inline-block;
+              animation: marquee 40s linear infinite;
+            }
+            .animate-marquee:hover {
+              animation-play-state: paused;
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* Page Title */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -345,52 +411,85 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* ── Stat Cards ── */}
-      {statsLoading ? (
+      {/* ── Stat Cards (Sales Dashboard) ── */}
+      {salesLoading ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            icon={FileText}
-            label="Total Policies"
-            value={stats.totalPolicies}
-            color="blue"
-          />
-          <StatCard
-            icon={Shield}
-            label="Active Policies"
-            value={stats.activePolicies}
-            color="green"
-          />
-          <StatCard
-            icon={AlertTriangle}
-            label="Overdue Payments"
-            value={stats.overduePayments}
-            color="red"
-          />
-          <StatCard
-            icon={IndianRupee}
-            label="Monthly Collection"
-            value={stats.monthlyCollection}
-            color="purple"
-            isCurrency
-          />
+          <div className="rounded-lg bg-green-50 p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-lg bg-green-100 p-3">
+                <IndianRupee className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Today's Income</p>
+                <p className="text-2xl font-bold text-green-700">{formatCurrency(salesSummary.todayIncome || 0)}</p>
+                <p className="text-xs text-gray-400">{salesSummary.todayCount || 0} sales today</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-blue-50 p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-lg bg-blue-100 p-3">
+                <TrendingUp className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Sales</p>
+                <p className="text-2xl font-bold text-blue-700">{formatCurrency(salesSummary.total || 0)}</p>
+                <p className="text-xs text-gray-400">{salesSummary.count || 0} transactions</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-red-50 p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-lg bg-red-100 p-3">
+                <Receipt className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+                <p className="text-2xl font-bold text-red-700">{formatCurrency(totalExpenses)}</p>
+                <p className="text-xs text-gray-400">All time expenses</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-purple-50 p-5">
+            <div className="flex items-center gap-4">
+              <div className="rounded-lg bg-purple-100 p-3">
+                {(salesSummary.total || 0) - totalExpenses >= 0
+                  ? <TrendingUp className="h-6 w-6 text-purple-600" />
+                  : <TrendingDown className="h-6 w-6 text-red-600" />
+                }
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Net Profit / Loss</p>
+                <p className={`text-2xl font-bold ${(salesSummary.total || 0) - totalExpenses >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
+                  {formatCurrency((salesSummary.total || 0) - totalExpenses)}
+                </p>
+                <p className="text-xs text-gray-400">Sales - Expenses</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ── Middle Widgets: Overdue + Reminders ── */}
+      {/* ── Middle Widgets: Credit Dues + Reminders ── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Overdue Payments */}
+        {/* Credit Overdue & Upcoming */}
         <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              <h2 className="text-base font-semibold text-gray-900">Overdue Payments</h2>
+              <Wallet className="h-5 w-5 text-red-500" />
+              <h2 className="text-base font-semibold text-gray-900">Credit Dues</h2>
+              {creditOverdue.length > 0 && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                  {creditOverdue.length} overdue
+                </span>
+              )}
             </div>
             <Link
-              to="/payments"
+              to="/credits"
               className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
             >
               View All
@@ -399,182 +498,168 @@ export default function DashboardPage() {
           </div>
 
           <div className="overflow-x-auto">
-            {overdueLoading ? (
+            {creditOverdueLoading || creditOpenLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
               </div>
-            ) : overdueItems.length === 0 ? (
+            ) : creditOverdue.length === 0 && creditUpcoming.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                <Shield className="mb-2 h-10 w-10 text-gray-300" />
-                <p className="text-sm">No overdue payments</p>
+                <Wallet className="mb-2 h-10 w-10 text-gray-300" />
+                <p className="text-sm">No credit dues</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Customer
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Policy No
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Amount
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Due Date
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Days Overdue
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {overdueItems.map((item, idx) => {
-                    const daysOverdue = Math.abs(getDaysUntil(item.dueDate || item.nextDueDate) || 0);
-                    return (
-                      <tr key={item._id || idx} className="hover:bg-gray-50 transition-colors">
-                        <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
-                          {item.customerName || item.customer?.name || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                          {item.policyNumber || item.policy?.policyNumber || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900 font-medium">
-                          {formatCurrency(item.premiumAmount || item.amount)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                          {formatDate(item.dueDate || item.nextDueDate)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-red-600">
-                          {daysOverdue} days
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() =>
-                                setPaymentModal({ open: true, payment: item })
-                              }
-                              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
-                              title="Record Payment"
-                            >
-                              <CreditCard className="h-3.5 w-3.5" />
-                              Pay
-                            </button>
-                            <button
-                              onClick={() => openWhatsApp(item)}
-                              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
-                              title="Send WhatsApp Reminder"
-                            >
-                              <MessageCircle className="h-3.5 w-3.5" />
-                              WhatsApp
-                            </button>
+              <div>
+                {/* Overdue Credits */}
+                {creditOverdue.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 bg-red-50 border-b border-red-100">
+                      <span className="text-xs font-semibold text-red-700 uppercase tracking-wider">Overdue</span>
+                    </div>
+                    {creditOverdue.map((credit) => {
+                      const daysOverdue = Math.abs(getDaysUntil(credit.dueDate) || 0);
+                      return (
+                        <div key={credit._id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                          <div className="p-1.5 bg-red-100 rounded-lg shrink-0">
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Link to={`/credits/${credit._id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 truncate">
+                                {credit.customer?.name || '-'}
+                              </Link>
+                              <span className="text-xs font-semibold text-red-600">{daysOverdue}d overdue</span>
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">{credit.reason} &middot; Due: {formatDate(credit.dueDate)}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-bold text-red-600">{formatCurrency(credit.balanceAmount)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Upcoming Credits */}
+                {creditUpcoming.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
+                      <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Upcoming (30 days)</span>
+                    </div>
+                    {creditUpcoming.map((credit) => {
+                      const daysLeft = getDaysUntil(credit.dueDate) || 0;
+                      return (
+                        <div key={credit._id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                          <div className="p-1.5 bg-amber-100 rounded-lg shrink-0">
+                            <Clock className="h-4 w-4 text-amber-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Link to={`/credits/${credit._id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 truncate">
+                                {credit.customer?.name || '-'}
+                              </Link>
+                              <span className="text-xs font-medium text-amber-600">{daysLeft}d left</span>
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">{credit.reason} &middot; Due: {formatDate(credit.dueDate)}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-bold text-gray-900">{formatCurrency(credit.balanceAmount)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        {/* Upcoming Reminders */}
+        {/* My Reminders */}
         <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-500" />
-              <h2 className="text-base font-semibold text-gray-900">Upcoming Reminders</h2>
+              <BellRing className="h-5 w-5 text-orange-500" />
+              <h2 className="text-base font-semibold text-gray-900">My Reminders</h2>
             </div>
+            <Link
+              to="/my-reminders"
+              className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              View All
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
           <div className="overflow-x-auto">
-            {remindersLoading ? (
+            {customRemindersLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
               </div>
-            ) : reminders.length === 0 ? (
+            ) : customReminders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                <Clock className="mb-2 h-10 w-10 text-gray-300" />
-                <p className="text-sm">No upcoming reminders</p>
+                <BellRing className="mb-2 h-10 w-10 text-gray-300" />
+                <p className="text-sm">No active reminders</p>
+                <Link to="/my-reminders" className="mt-2 text-xs text-blue-600 hover:underline">Create a reminder</Link>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Customer
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Policy No
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Amount
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Due Date
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Days Until
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {reminders.map((item, idx) => {
-                    const daysUntil = getDaysUntil(item.dueDate || item.nextDueDate) ?? 0;
-                    return (
-                      <tr key={item._id || idx} className="hover:bg-gray-50 transition-colors">
-                        <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
-                          {item.customerName || item.customer?.name || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                          {item.policyNumber || item.policy?.policyNumber || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900 font-medium">
-                          {formatCurrency(item.premiumAmount || item.amount)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                          {formatDate(item.dueDate || item.nextDueDate)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-amber-600">
-                          {daysUntil} days
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right">
-                          <button
-                            onClick={() => openWhatsApp(item)}
-                            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
-                            title="Send WhatsApp Reminder"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            WhatsApp
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="divide-y divide-gray-100">
+                {customReminders.map((rem) => {
+                  const nextTrigger = rem.nextTrigger ? new Date(rem.nextTrigger) : null;
+                  const now = new Date();
+                  const diffMs = nextTrigger ? nextTrigger - now : 0;
+                  const minsLeft = Math.max(0, Math.floor(diffMs / 60000));
+                  const timeLabel = minsLeft < 60
+                    ? `${minsLeft}m`
+                    : minsLeft < 1440
+                      ? `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m`
+                      : `${Math.floor(minsLeft / 1440)}d`;
+
+                  const intervalLabel = rem.intervalMinutes < 60
+                    ? `Every ${rem.intervalMinutes} mins`
+                    : `Every ${rem.intervalMinutes / 60}h`;
+
+                  return (
+                    <div key={rem._id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors">
+                      <div className="p-2 bg-orange-100 rounded-lg shrink-0">
+                        <BellRing className="h-4 w-4 text-orange-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{rem.title}</p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                            <Repeat className="h-3 w-3" /> {intervalLabel}
+                          </span>
+                          <span className="text-xs text-gray-400">Until {formatDate(rem.endDate)}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 border border-orange-200 rounded-full">
+                          <Clock className="h-3 w-3 text-orange-500" />
+                          <span className="text-xs font-semibold text-orange-700">Next: {timeLabel}</span>
+                        </span>
+                        {rem.triggerCount > 0 && (
+                          <p className="text-xs text-gray-400 mt-0.5">{rem.triggerCount}x triggered</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Recent Policies ── */}
+      {/* ── Vehicle Insurance Expiring ── */}
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-500" />
-            <h2 className="text-base font-semibold text-gray-900">Recent Policies</h2>
+            <Car className="h-5 w-5 text-amber-500" />
+            <h2 className="text-base font-semibold text-gray-900">Vehicle Insurance — Expiring / Expired</h2>
           </div>
           <Link
-            to="/policies"
+            to="/vehicle-insurance"
             className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
           >
             View All
@@ -582,42 +667,88 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {recentLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-          </div>
-        ) : recentPolicies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-            <FileText className="mb-2 h-10 w-10 text-gray-300" />
-            <p className="text-sm">No recent policies</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recentPolicies.map((policy, idx) => (
-              <Link
-                key={policy._id || idx}
-                to={`/policies/${policy._id}`}
-                className="rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-blue-600">
-                    {policy.policyNumber}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {formatDate(policy.createdAt)}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm font-medium text-gray-900">
-                  {policy.customerName || policy.customer?.name || '-'}
-                </p>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {policy.schemeName || policy.scheme?.name || '-'}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="overflow-x-auto">
+          {vehicleExpiringLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            </div>
+          ) : vehicleExpiring.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+              <Car className="mb-2 h-10 w-10 text-gray-300" />
+              <p className="text-sm">No expiring vehicle insurance</p>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Vehicle</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Policy No</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Expiry Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {vehicleExpiring.map((item, idx) => {
+                  const daysUntil = getDaysUntil(item.policyExpiryDate);
+                  const isExpired = daysUntil !== null && daysUntil < 0;
+                  const customerName = item.customer?.name || '-';
+                  const customerPhone = item.customer?.phone || '';
+                  const vehicleInfo = [item.vehicleBrand, item.model, item.vehicleNumber].filter(Boolean).join(' — ');
+
+                  return (
+                    <tr key={item._id || idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                        {customerName}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                        {vehicleInfo || '-'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                        {item.policyNumber || '-'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                        {formatDate(item.policyExpiryDate)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm">
+                        {isExpired ? (
+                          <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                            Expired {Math.abs(daysUntil)}d ago
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                            {daysUntil}d left
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        <button
+                          onClick={() => {
+                            if (!customerPhone) {
+                              toast.error('No phone number available');
+                              return;
+                            }
+                            const msg = `Dear ${customerName}, your vehicle insurance for ${item.vehicleBrand || ''} ${item.model || ''} (${item.vehicleNumber || ''}) — Policy: ${item.policyNumber || ''} is ${isExpired ? 'expired' : 'expiring'} on ${formatDate(item.policyExpiryDate)}. Please renew at the earliest. Thank you, Samwin Infotech`;
+                            window.open(generateWhatsAppLink(customerPhone, msg), '_blank');
+                          }}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                          title="Send WhatsApp Reminder"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          WhatsApp
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
+
+      {/* Recent Policies section removed — moved to Vehicle Insurance page */}
 
       {/* ── Record Payment Modal ── */}
       <RecordPaymentModal

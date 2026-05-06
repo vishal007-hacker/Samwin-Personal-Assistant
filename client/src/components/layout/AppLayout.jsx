@@ -3,6 +3,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAuth } from '../../features/auth/AuthContext';
+import ReminderPopup from '../../features/custom-reminders/ReminderPopup';
 
 export default function AppLayout() {
   const { user, loading } = useAuth();
@@ -35,6 +36,9 @@ export default function AppLayout() {
           <Outlet context={{ setPageTitle }} />
         </main>
       </div>
+
+      {/* Global reminder popup — checks every 30s for due reminders */}
+      <ReminderPopup />
     </div>
   );
 }

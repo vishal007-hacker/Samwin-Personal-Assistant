@@ -82,7 +82,7 @@ exports.searchCustomers = async (req, res, next) => {
         { phone: { $regex: q, $options: 'i' } },
       ],
     })
-      .select('name phone email')
+      .select('name phone email aadhaarNumber panNumber')
       .limit(20);
 
     success(res, customers);

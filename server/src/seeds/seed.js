@@ -317,16 +317,16 @@ const seed = async () => {
     console.log('Connected to MongoDB');
 
     // Create admin user if not exists
-    const existingAdmin = await User.findOne({ email: 'admin@samwininfotech.com' });
+    const existingAdmin = await User.findOne({ email: 'admin' });
     if (!existingAdmin) {
       await User.create({
         name: 'Admin',
-        email: 'admin@samwininfotech.com',
-        password: 'admin123',
+        email: 'admin',
+        password: 'admin',
         role: 'admin',
         phone: '9999999999',
       });
-      console.log('Admin user created (admin@samwininfotech.com / admin123)');
+      console.log('Admin user created (admin / admin)');
     } else {
       console.log('Admin user already exists');
     }

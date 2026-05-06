@@ -1,41 +1,39 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  Shield,
   LayoutDashboard,
   Users,
-  FileText,
-  FilePlus,
-  FolderOpen,
-  CreditCard,
-  Bell,
   BarChart3,
   Wallet,
   Megaphone,
+  Car,
+  Smartphone,
   LogOut,
   X,
   ChevronDown,
-  ShieldCheck,
+  Receipt,
+  ShoppingBag,
+  FileText,
+  GraduationCap,
+  BellRing,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/customers', label: 'Customers', icon: Users },
-  {
-    label: 'Insurance',
-    icon: ShieldCheck,
-    children: [
-      { to: '/schemes', label: 'Schemes', icon: FileText },
-      { to: '/policies/new', label: 'New Policy', icon: FilePlus },
-      { to: '/policies', label: 'Policies', icon: FolderOpen },
-      { to: '/reminders', label: 'Reminders', icon: Bell },
-    ],
-  },
-  { to: '/payments', label: 'Payments', icon: CreditCard },
+  { to: '/vehicle-insurance', label: 'Vehicle Insurance', icon: Car },
   { to: '/credits', label: 'Credit', icon: Wallet },
+  { to: '/stock', label: 'Stock', icon: Smartphone },
+  { to: '/sales', label: 'Sales', icon: ShoppingBag },
+  { to: '/expenses', label: 'Expenses', icon: Receipt },
+  { to: '/billing', label: 'Billing', icon: FileText },
   { to: '/broadcast', label: 'Broadcast', icon: Megaphone },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/lms', label: 'LMS', icon: GraduationCap },
+  { to: '/employees', label: 'Employees', icon: UserCheck },
+  { to: '/my-reminders', label: 'My Reminders', icon: BellRing },
 ];
 
 function NavItem({ item, onClose }) {
@@ -153,7 +151,7 @@ export default function Sidebar({ collapsed, onClose }) {
         {/* Logo area */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center gap-2">
-            <Shield className="h-7 w-7 text-blue-600" />
+            <img src="/logo.png" alt="Samwin" className="h-8 w-8 object-contain" />
             <span className="text-lg font-bold text-gray-900 tracking-tight">
               Samwin Infotech
             </span>

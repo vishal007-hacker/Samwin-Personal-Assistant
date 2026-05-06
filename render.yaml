@@ -13,3 +13,4 @@ services:
         sync: false
       - key: PORT
         value: 5000
+  

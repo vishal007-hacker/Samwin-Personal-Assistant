@@ -4,3 +4,10 @@ uploads/*
 !uploads/.gitkeep
 dist/
 .DS_Store
+
+# Local-only files (do not push)
+.claude/
+Test.md
+backup_*/
+server/uploads/*
+!server/uploads/.gitkeep

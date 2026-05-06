@@ -40,6 +40,16 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/reminders', require('./routes/reminderRoutes'));
 app.use('/api/credits', require('./routes/creditRoutes'));
 app.use('/api/broadcast', require('./routes/broadcastRoutes'));
+app.use('/api/stock', require('./routes/stockRoutes'));
+app.use('/api/vehicle-insurance', require('./routes/vehicleInsuranceRoutes'));
+app.use('/api/expenses', require('./routes/expenseRoutes'));
+app.use('/api/sales', require('./routes/salesRoutes'));
+app.use('/api/billing', require('./routes/billingRoutes'));
+app.use('/api/lms', require('./routes/lmsRoutes'));
+app.use('/api/custom-reminders', require('./routes/customReminderRoutes'));
+app.use('/api/employees', require('./routes/employeeRoutes'));
+app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/bible-verse', require('./routes/bibleVerseRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

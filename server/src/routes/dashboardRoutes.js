@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const {
-  getStats, getUpcomingReminders, getOverdue, getRecentPolicies, resetAllData,
+  getStats, getUpcomingReminders, getOverdue, getRecentPolicies, getVehicleExpiring, resetAllData,
 } = require('../controllers/dashboardController');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
@@ -10,6 +10,7 @@ router.get('/stats', getStats);
 router.get('/upcoming-reminders', getUpcomingReminders);
 router.get('/overdue', getOverdue);
 router.get('/recent-policies', getRecentPolicies);
+router.get('/vehicle-expiring', getVehicleExpiring);
 router.delete('/reset', roleCheck('admin'), resetAllData);
 
 module.exports = router;

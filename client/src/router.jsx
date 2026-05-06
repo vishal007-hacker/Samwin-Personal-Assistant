@@ -16,8 +16,20 @@ import RemindersPage from './features/reminders/RemindersPage';
 import CreditListPage from './features/credits/CreditListPage';
 import CreditDetailPage from './features/credits/CreditDetailPage';
 import NewCreditPage from './features/credits/NewCreditPage';
+import StockListPage from './features/stock/StockListPage';
+import PhoneAccessoryListPage from './features/stock/PhoneAccessoryListPage';
+import ComputerAccessoryListPage from './features/stock/ComputerAccessoryListPage';
+import StockReportPage from './features/stock/StockReportPage';
 import BroadcastPage from './features/broadcast/BroadcastPage';
 import ReportsPage from './features/reports/ReportsPage';
+import VehicleInsurancePage from './features/vehicle-insurance/VehicleInsurancePage';
+import ExpenseListPage from './features/expenses/ExpenseListPage';
+import SalesPage from './features/sales/SalesPage';
+import BillingPage from './features/billing/BillingPage';
+import LMSPage from './features/lms/LMSPage';
+import CustomReminderPage from './features/custom-reminders/CustomReminderPage';
+import EmployeeListPage from './features/employees/EmployeeListPage';
+import AttendancePage from './features/employees/AttendancePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -40,11 +52,23 @@ export const router = createBrowserRouter([
       { path: 'payments', element: <PaymentCollectionPage /> },
       { path: 'payments/history', element: <PaymentHistoryPage /> },
       { path: 'reminders', element: <RemindersPage /> },
+      { path: 'vehicle-insurance', element: <VehicleInsurancePage /> },
       { path: 'credits', element: <CreditListPage /> },
       { path: 'credits/new', element: <NewCreditPage /> },
       { path: 'credits/:id', element: <CreditDetailPage /> },
+      { path: 'stock', element: <StockListPage /> },
+      { path: 'stock/phone-accessories', element: <PhoneAccessoryListPage /> },
+      { path: 'stock/computer-accessories', element: <ComputerAccessoryListPage /> },
+      { path: 'stock/report', element: <StockReportPage /> },
+      { path: 'sales', element: <SalesPage /> },
+      { path: 'expenses', element: <ExpenseListPage /> },
+      { path: 'billing', element: <BillingPage /> },
       { path: 'broadcast', element: <BroadcastPage /> },
       { path: 'reports', element: <ReportsPage /> },
+      { path: 'lms', element: <LMSPage /> },
+      { path: 'my-reminders', element: <CustomReminderPage /> },
+      { path: 'employees', element: <EmployeeListPage /> },
+      { path: 'employees/:id/attendance', element: <AttendancePage /> },
     ],
   },
 ]);
