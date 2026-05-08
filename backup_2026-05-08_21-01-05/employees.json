@@ -1,0 +1,46 @@
+[
+  {
+    "_id": "69cfbef1df5e0d178c415aaa",
+    "name": "Merlin",
+    "phone": "9944514911",
+    "email": "",
+    "designation": "Engineer",
+    "address": "",
+    "aadhaarNumber": "",
+    "dateOfJoining": "2015-08-08T00:00:00.000Z",
+    "salary": 30000,
+    "bankAccount": {
+      "accountNumber": "",
+      "ifsc": "",
+      "bankName": ""
+    },
+    "isActive": true,
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-04-03T13:21:53.689Z",
+    "updatedAt": "2026-04-03T13:32:13.423Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fb3dbdd6187394fe1876ad",
+    "name": "Vishal",
+    "phone": "9876543210",
+    "email": "",
+    "designation": "",
+    "address": "",
+    "aadhaarNumber": "",
+    "dateOfJoining": "2026-05-01T00:00:00.000Z",
+    "salary": 0,
+    "bankAccount": {
+      "accountNumber": "",
+      "ifsc": "",
+      "bankName": ""
+    },
+    "isActive": true,
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-06T13:10:21.450Z",
+    "updatedAt": "2026-05-06T13:10:21.450Z",
+    "__v": 0
+  }
+]
