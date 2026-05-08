@@ -15,6 +15,7 @@ import {
   GraduationCap,
   UserCheck,
   CalendarCheck,
+  Banknote,
 } from 'lucide-react';
 import api from '../../lib/axios';
 import { formatDate, formatCurrency } from '../../lib/utils';
@@ -27,6 +28,7 @@ import { useCredits } from '../credits/creditApi';
 import { useAllEmployees } from '../employees/employeeApi';
 import { useAttendance } from '../employees/attendanceApi';
 import { useLMSEntries } from '../lms/lmsApi';
+import { useAccounts } from '../accounts/accountApi';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -90,6 +92,7 @@ const TAB_GROUPS = [
     tabs: [
       { key: 'credit', label: 'Credit', icon: Wallet },
       { key: 'expense', label: 'Expenses', icon: Receipt, dateRange: true },
+      { key: 'accounts', label: 'Accounts', icon: Banknote },
     ],
   },
   {
@@ -261,6 +264,7 @@ export default function ReportsPage() {
       : {}
   );
   const lmsQuery = useLMSEntries();
+  const accountsQuery = useAccounts();
 
   // ── Derived Data ──
   const premiumResult = premiumQuery.data?.data || {};
@@ -277,6 +281,10 @@ export default function ReportsPage() {
   const employeeData = employeeQuery.data?.data || employeeQuery.data || [];
   const attendanceData = attendanceQuery.data?.data || [];
   const lmsData = lmsQuery.data?.data || lmsQuery.data || [];
+  const accountsGrouped = accountsQuery.data?.data || { recharge: [], banking: [], aeps: [], cash: [] };
+  const accountsFlat = Object.entries(accountsGrouped).flatMap(([section, list]) =>
+    list.map((a) => ({ ...a, sectionKey: section }))
+  );
 
   // ── Summaries ──
   const premiumSummary = useMemo(() => {
@@ -381,6 +389,15 @@ export default function ReportsPage() {
       .reduce((s, e) => s + (e.salary || 0), 0);
     return { total, active, inactive: total - active, totalSalary };
   }, [employeeData]);
+
+  const accountsSummary = useMemo(() => {
+    const sums = { recharge: 0, banking: 0, aeps: 0, cash: 0 };
+    Object.entries(accountsGrouped).forEach(([section, list]) => {
+      sums[section] = (list || []).reduce((s, a) => s + (a.balance || 0), 0);
+    });
+    const grandTotal = Object.values(sums).reduce((a, b) => a + b, 0);
+    return { ...sums, grandTotal };
+  }, [accountsGrouped]);
 
   const attendanceSummary = useMemo(() => {
     const counts = { present: 0, absent: 0, 'half-day': 0, leave: 0 };
@@ -575,6 +592,16 @@ export default function ReportsPage() {
           lmsData.map((r) => [r.title || '', r.link || '', r.userId || '', r.message || ''])
         );
         break;
+      case 'accounts': {
+        const sectionLabels = { recharge: 'Recharge', banking: 'Banking', aeps: 'AEPS', cash: 'Available Cash' };
+        const rows = accountsFlat.map((a) => [sectionLabels[a.sectionKey] || a.sectionKey, a.name, a.balance || 0]);
+        ['recharge', 'banking', 'aeps', 'cash'].forEach((k) => {
+          rows.push([sectionLabels[k] + ' — Total', '', accountsSummary[k]]);
+        });
+        rows.push(['GRAND TOTAL', '', accountsSummary.grandTotal]);
+        exportCSV('accounts-report.csv', ['Section', 'Account', 'Balance'], rows);
+        break;
+      }
       default:
         break;
     }
@@ -595,6 +622,7 @@ export default function ReportsPage() {
     employee: employeeQuery,
     attendance: attendanceQuery,
     lms: lmsQuery,
+    accounts: accountsQuery,
   };
   const queryForTab = QUERY_BY_TAB[activeTab];
   const isLoading = queryForTab?.isLoading;
@@ -615,6 +643,7 @@ export default function ReportsPage() {
     employee: employeeData,
     attendance: attendanceData,
     lms: lmsData,
+    accounts: accountsFlat,
   };
   const hasData = (DATA_BY_TAB[activeTab] || []).length > 0;
 
@@ -1049,6 +1078,36 @@ export default function ReportsPage() {
                   { label: 'Expenses', render: (r) => (r.expenses ? formatCurrency(r.expenses) : '-'), cellClass: 'text-gray-600' },
                 ]}
                 rows={attendanceData}
+              />
+            </div>
+          )}
+
+          {/* ── Accounts ── */}
+          {activeTab === 'accounts' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                <SummaryCard label="Grand Total" value={formatCurrency(accountsSummary.grandTotal)} color="indigo" />
+                <SummaryCard label="Recharge" value={formatCurrency(accountsSummary.recharge)} color="blue" />
+                <SummaryCard label="Banking" value={formatCurrency(accountsSummary.banking)} color="green" />
+                <SummaryCard label="AEPS" value={formatCurrency(accountsSummary.aeps)} color="purple" />
+                <SummaryCard label="Available Cash" value={formatCurrency(accountsSummary.cash)} color="amber" />
+              </div>
+              <DataTable
+                emptyIcon={Banknote}
+                emptyMessage="No account balances yet"
+                columns={[
+                  {
+                    label: 'Section',
+                    render: (r) => {
+                      const labels = { recharge: 'Recharge', banking: 'Banking', aeps: 'AEPS', cash: 'Available Cash' };
+                      return labels[r.sectionKey] || r.sectionKey;
+                    },
+                    cellClass: 'text-gray-700 capitalize',
+                  },
+                  { label: 'Account', render: (r) => r.name || '-', cellClass: 'font-medium text-gray-900' },
+                  { label: 'Balance', render: (r) => formatCurrency(r.balance), cellClass: 'font-medium text-gray-900' },
+                ]}
+                rows={accountsFlat}
               />
             </div>
           )}

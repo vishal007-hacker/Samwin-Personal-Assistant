@@ -18,6 +18,7 @@ import {
   BellRing,
   UserCheck,
   Wrench,
+  Banknote,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -31,6 +32,7 @@ const navItems = [
   { to: '/sales', label: 'Sales', icon: ShoppingBag },
   { to: '/expenses', label: 'Expenses', icon: Receipt },
   { to: '/billing', label: 'Billing', icon: FileText },
+  { to: '/accounts', label: 'Accounts', icon: Banknote },
   { to: '/broadcast', label: 'Broadcast', icon: Megaphone },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/lms', label: 'LMS', icon: GraduationCap },

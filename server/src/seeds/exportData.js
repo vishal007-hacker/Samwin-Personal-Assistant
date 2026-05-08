@@ -25,6 +25,7 @@ const CustomReminder = require('../models/CustomReminder');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const Service = require('../models/Service');
+const Account = require('../models/Account');
 
 const collections = [
   { name: 'users', model: User },
@@ -47,6 +48,7 @@ const collections = [
   { name: 'employees', model: Employee },
   { name: 'attendances', model: Attendance },
   { name: 'services', model: Service },
+  { name: 'accounts', model: Account },
 ];
 
 async function exportData() {

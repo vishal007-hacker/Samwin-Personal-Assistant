@@ -27,16 +27,18 @@ A complete full-stack office management application for **Samwin Infotech** — 
 | Module              | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
 | Dashboard           | Sales income, expenses, profit/loss, overdue & reminders   |
-| Customers           | Full CRM with Aadhaar, PAN, nominees, profiles             |
+| Customers           | Full CRM with Aadhaar, PAN, nominees, **referral, WhatsApp promo** |
 | Vehicle Insurance   | Policy tracking, expiry alerts, WhatsApp reminders         |
+| Our Services        | Installations, addon works, service jobs with WhatsApp reminders |
 | Credits (Lending)   | FIFO payments, auto due-date shifting, bulk WhatsApp       |
 | Stock Management    | Mobile, phone & computer accessories with sell tracking    |
 | Sales               | Daily sales, categories, today's income, reports           |
 | Expenses            | Category-based expense tracking with summaries             |
 | Billing             | GST Invoice, Quotation, Receipt with print-ready layout    |
+| **Accounts**        | **Recharge / Banking / AEPS / Cash balances with totals**  |
 | Employees           | Staff management with attendance & salary calculation      |
 | Broadcast           | Bulk WhatsApp messaging with file attachments              |
-| Reports             | Premium collection, policy/customer/scheme-wise + CSV      |
+| Reports             | All-module tabs (Insurance, Sales, Stock, Finance, People) + CSV |
 | LMS (Training)      | Office work guides with credentials for new workers        |
 | My Reminders        | Recurring popup reminders with beep sound                  |
 | Notifications       | In-app bell with badge count, auto daily checks            |
@@ -58,6 +60,9 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Create, edit, search, delete customers
 - Personal details: Aadhaar, PAN, DOB, address
 - Multiple nominees with relationship tracking
+- **Referral field** — track who referred each customer
+- **WhatsApp promotional message button** — opens WhatsApp with the customer's phone + a customizable promo message
+- **Colored action buttons** (WhatsApp / View / Edit / Delete) for at-a-glance use
 - Customer profile page with linked policies
 - Text search across name, phone, email, PAN
 
@@ -69,6 +74,30 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Insurance type management
 - WhatsApp reminder with pre-filled messages
 - Filter: All / Expiring Soon / Expired
+
+### Our Services
+- Track installations, addon works, and service jobs
+- Customer dropdown linked to existing customer database
+- **Type of work:** New Installation, Addon Works, Service
+- Materials used, asking price, received cash, balance auto-calculated
+- Notes per service entry
+- **WhatsApp service-reminder button** — sends a follow-up reminder to the customer about their previous service
+- **Colored action buttons** (WhatsApp / Edit / Delete)
+- Date-range and type filters, search across materials/notes
+- Summary cards: total services, total asked, total received with balance due
+- CSV export
+
+### Accounts
+- Single page tracking balances across **4 sections** with auto-calculated totals:
+  - **Recharge:** Airtel, VI, Jio, BSNL, Multi RC, Available Cash
+  - **Banking:** Union, KVB, Available Cash
+  - **AEPS:** Airtel, Relipay, Digipay, Available Cash
+  - **Available Cash:** Total Cash on Hand
+- **Inline editing** — click any balance number to edit, Enter to save
+- **Add custom items** to any section (e.g., new bank, new payment provider)
+- **Auto-seeded defaults** — first time you open the page (or whenever a section is empty), the standard items are populated
+- Section totals + Grand Total displayed live as you edit
+- Color-coded sections for quick scanning
 
 ### Insurance Schemes & Policies
 - 20+ pre-seeded schemes (LIC, HDFC, SBI, Star Health, etc.)
@@ -166,12 +195,22 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Stop and delete controls
 
 ### Reports
-- Premium Collection report (daily breakdown)
-- Policy-wise report (total paid per policy)
-- Customer-wise report (total paid per customer)
-- Scheme-wise report (policies per scheme)
-- Date range filter
-- **CSV export** for all report types
+- **Grouped tabs** covering every module:
+  - **Insurance:** Premium Collection, Policy-wise, Customer-wise, Scheme-wise, Vehicle Insurance
+  - **Sales & Inventory:** Stock, Sales, Billing
+  - **Finance:** Credit, Expenses
+  - **People:** Employees, Attendance
+  - **Other:** LMS
+- Each tab: summary cards, sortable table, **CSV export**
+- Date-range filter (where applicable)
+
+### Per-Module Export CSV Buttons
+
+In addition to the Reports page, every list page has its own **Export CSV** button so you can download exactly what you're viewing:
+
+Customers · Vehicle Insurance · Credits · Stock (Mobile / Phone Accessories / Computer Accessories) · Sales · Expenses · Billing · LMS · Employees · Custom Reminders · **Our Services**
+
+The shared `exportCSV()` helper lives at `client/src/lib/utils.js`.
 
 ### Authentication & Roles
 - JWT-based authentication (7-day token expiry)
@@ -191,6 +230,7 @@ Samwin/Personal Assistant/
 │       │   ├── layout/              # AppLayout, Header (live clock), Sidebar
 │       │   └── ui/                  # Modal, Spinner, Badge, ConfirmDialog
 │       ├── features/
+│       │   ├── accounts/            # AccountsPage, accountApi (recharge/banking/AEPS/cash)
 │       │   ├── auth/                # LoginPage, AuthContext
 │       │   ├── billing/             # BillingPage (Invoice/Quotation/Receipt)
 │       │   ├── broadcast/           # BroadcastPage, broadcastApi
@@ -205,9 +245,10 @@ Samwin/Personal Assistant/
 │       │   ├── payments/            # PaymentCollectionPage, PaymentHistoryPage
 │       │   ├── policies/            # PolicyListPage, PolicyEntryPage, PolicyDetailPage
 │       │   ├── reminders/           # RemindersPage (policy reminders)
-│       │   ├── reports/             # ReportsPage
+│       │   ├── reports/             # ReportsPage (all-module grouped tabs)
 │       │   ├── sales/               # SalesPage
 │       │   ├── schemes/             # SchemeListPage, SchemeFormPage
+│       │   ├── services/            # ServicesPage, serviceApi (Our Services)
 │       │   ├── stock/               # StockListPage, StockReportPage, Accessories
 │       │   └── vehicle-insurance/   # VehicleInsurancePage
 │       ├── hooks/                   # useDebounce
@@ -218,14 +259,14 @@ Samwin/Personal Assistant/
 ├── server/                          # Node.js/Express backend
 │   └── src/
 │       ├── config/                  # env.js, db.js
-│       ├── controllers/             # 16 controllers
+│       ├── controllers/             # 20+ controllers (incl. service, account, backup)
 │       ├── middleware/               # auth, roleCheck, validate, errorHandler, upload
-│       ├── models/                  # 17 models
-│       ├── routes/                  # 17 route files
+│       ├── models/                  # 22 models (incl. Service, Account, Attendance, Employee)
+│       ├── routes/                  # 20+ route files
 │       ├── seeds/                   # seed.js, seedStock.js, exportData.js, importData.js
 │       ├── services/                # reminderService, whatsappService
 │       ├── utils/                   # responseHelper, dateHelpers
-│       ├── validators/              # 10 Joi validators
+│       ├── validators/              # 13+ Joi validators
 │       ├── app.js
 │       └── server.js
 │
@@ -304,6 +345,23 @@ Samwin/Personal Assistant/
 | POST   | `/api/employees`                      | Create employee         |
 | GET    | `/api/attendance`                     | List attendance         |
 | POST   | `/api/attendance`                     | Mark attendance         |
+
+### Our Services
+| Method | Endpoint                | Description                   |
+| ------ | ----------------------- | ----------------------------- |
+| GET    | `/api/services`         | List services (filterable)    |
+| GET    | `/api/services/:id`     | Get single service            |
+| POST   | `/api/services`         | Create service                |
+| PUT    | `/api/services/:id`     | Update service                |
+| DELETE | `/api/services/:id`     | Delete service                |
+
+### Accounts (Wallet Balances)
+| Method | Endpoint                | Description                              |
+| ------ | ----------------------- | ---------------------------------------- |
+| GET    | `/api/accounts`         | List accounts grouped by section (auto-seeds defaults) |
+| POST   | `/api/accounts`         | Add new account row                      |
+| PUT    | `/api/accounts/:id`     | Update balance / name                    |
+| DELETE | `/api/accounts/:id`     | Delete account row                       |
 
 ### LMS, Reminders, Broadcast, Notifications
 | Method | Endpoint                        | Description                  |
