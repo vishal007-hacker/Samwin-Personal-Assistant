@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Loader2, Plus, Trash2, Check, X, Edit3, Wallet, Smartphone, Building2, IndianRupee, Banknote, Download, BarChart3,
+  Loader2, Plus, Trash2, Check, X, Edit3, Wallet, Smartphone, Building2, IndianRupee, Banknote,
+  Download, BarChart3, Save, Printer, Calendar,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   useAccounts, useCreateAccount, useUpdateAccount, useDeleteAccount,
+  useAccountSnapshots, useSaveSnapshot, useDeleteSnapshot,
 } from './accountApi';
-import { formatCurrency, exportCSV } from '../../lib/utils';
+import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
 // ── Section Configuration ───────────────────────────────────────────────────
 
@@ -313,146 +315,396 @@ export default function AccountsPage() {
         ))}
       </div>
 
-      {/* ── Report Section ── */}
-      <ReportPanel
-        sections={SECTIONS}
-        grouped={grouped}
-        sectionTotals={sectionTotals}
-        grandTotal={grandTotal}
-      />
+      {/* ── Date-wise Snapshot Report ── */}
+      <SnapshotReport sectionTotals={sectionTotals} grandTotal={grandTotal} />
     </div>
   );
 }
 
-// ── Report Panel (in-page report) ───────────────────────────────────────────
+// ── Date-wise Snapshot Report ───────────────────────────────────────────────
 
-function ReportPanel({ sections, grouped, sectionTotals, grandTotal }) {
-  const allAccounts = sections.flatMap((s) =>
-    (grouped[s.key] || []).map((a) => ({ ...a, sectionLabel: s.label, sectionColor: s.color }))
+function getDefaultDateRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  return {
+    from: start.toISOString().split('T')[0],
+    to: now.toISOString().split('T')[0],
+  };
+}
+
+function SnapshotReport({ sectionTotals, grandTotal }) {
+  const [range, setRange] = useState(getDefaultDateRange);
+  const [snapshotDate, setSnapshotDate] = useState(new Date().toISOString().slice(0, 10));
+
+  const { data, isLoading } = useAccountSnapshots(range);
+  const saveMutation = useSaveSnapshot();
+  const deleteMutation = useDeleteSnapshot();
+
+  const snapshots = data?.data || [];
+
+  const totals = useMemo(
+    () =>
+      snapshots.reduce(
+        (acc, s) => ({
+          recharge: acc.recharge + (s.recharge || 0),
+          banking: acc.banking + (s.banking || 0),
+          aeps: acc.aeps + (s.aeps || 0),
+          cash: acc.cash + (s.cash || 0),
+          total: acc.total + (s.total || 0),
+        }),
+        { recharge: 0, banking: 0, aeps: 0, cash: 0, total: 0 }
+      ),
+    [snapshots]
   );
-  const ranked = [...allAccounts].sort((a, b) => (b.balance || 0) - (a.balance || 0));
-  const nonZero = ranked.filter((a) => (a.balance || 0) > 0);
-  const zeros = ranked.filter((a) => (a.balance || 0) === 0);
+
+  const handleSave = async () => {
+    try {
+      await saveMutation.mutateAsync({ date: snapshotDate });
+      toast.success('Snapshot saved');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save snapshot');
+    }
+  };
+
+  const handleDelete = async (snap) => {
+    if (!confirm(`Delete snapshot for ${formatDate(snap.date)}?`)) return;
+    try {
+      await deleteMutation.mutateAsync(snap._id);
+      toast.success('Deleted');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed');
+    }
+  };
+
+  const handleExport = () => {
+    if (!snapshots.length) return toast.error('No snapshots to export');
+    const rows = snapshots.map((s) => [
+      formatDate(s.date),
+      s.recharge || 0,
+      s.banking || 0,
+      s.aeps || 0,
+      s.cash || 0,
+      s.total || 0,
+    ]);
+    rows.push(['TOTAL', totals.recharge, totals.banking, totals.aeps, totals.cash, totals.total]);
+    exportCSV(
+      'accounts-report.csv',
+      ['Date', 'Recharge Accounts', 'Banking Accounts', 'AEPS Accounts', 'Available Cash', 'Total Value'],
+      rows
+    );
+  };
+
+  const handlePrint = () => {
+    if (!snapshots.length) return toast.error('No snapshots to print');
+    const rangeLabel =
+      range.from && range.to
+        ? `${formatDate(range.from)} to ${formatDate(range.to)}`
+        : 'All dates';
+
+    const win = window.open('', '_blank', 'width=1000,height=800');
+    win.document.write(`<!DOCTYPE html><html><head><title>Accounts Report</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { color: #111; padding: 0; font-size: 11px; }
+  .container { max-width: 210mm; margin: 0 auto; }
+  .header { border-bottom: 3px solid #4f46e5; padding-bottom: 10px; margin-bottom: 12px; }
+  .company { font-size: 20px; font-weight: 800; color: #4f46e5; }
+  .subtitle { font-size: 10px; color: #555; margin-top: 3px; }
+  .title { font-size: 16px; font-weight: 700; margin-top: 10px; color: #1a1a1a; }
+  .meta { font-size: 10px; color: #666; margin-top: 3px; }
+  .row { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; page-break-inside: avoid; }
+  .row-date { font-size: 12px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+  .cards { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; gap: 6px; }
+  .card { border-radius: 6px; padding: 6px 9px; }
+  .card-label { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.8; margin-bottom: 2px; }
+  .card-value { font-size: 13px; font-weight: 800; }
+  .grand { background: linear-gradient(135deg, #4f46e5, #9333ea); color: white; }
+  .recharge { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+  .banking { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+  .aeps { background: #faf5ff; border: 1px solid #e9d5ff; color: #7e22ce; }
+  .cash { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; }
+  .totals-section { margin-top: 14px; padding-top: 12px; border-top: 2px solid #4f46e5; }
+  .totals-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #4f46e5; margin-bottom: 6px; letter-spacing: 0.5px; }
+  .footer { margin-top: 14px; font-size: 9px; color: #888; text-align: center; }
+</style></head><body><div class="container">
+  <div class="header">
+    <div class="company">Samwin Infotech</div>
+    <div class="subtitle">14-5-10D, TVK Street, Near CSI Church, Sambavarvadakarai - 627856, Tenkasi · Ph: 9566181510, 9944514911</div>
+  </div>
+  <div class="title">Accounts Snapshot Report</div>
+  <div class="meta">Date Range: ${rangeLabel} · Generated: ${new Date().toLocaleString('en-IN')}</div>
+
+  <div style="margin-top: 10px;">
+    ${snapshots
+      .map(
+        (s) => `<div class="row">
+          <div class="row-date">${formatDate(s.date)}</div>
+          <div class="cards">
+            <div class="card grand">
+              <div class="card-label">Grand Total</div>
+              <div class="card-value">${formatCurrency(s.total || 0)}</div>
+            </div>
+            <div class="card recharge">
+              <div class="card-label">Recharge Accounts</div>
+              <div class="card-value">${formatCurrency(s.recharge || 0)}</div>
+            </div>
+            <div class="card banking">
+              <div class="card-label">Banking Accounts</div>
+              <div class="card-value">${formatCurrency(s.banking || 0)}</div>
+            </div>
+            <div class="card aeps">
+              <div class="card-label">AEPS Accounts</div>
+              <div class="card-value">${formatCurrency(s.aeps || 0)}</div>
+            </div>
+            <div class="card cash">
+              <div class="card-label">Available Cash</div>
+              <div class="card-value">${formatCurrency(s.cash || 0)}</div>
+            </div>
+          </div>
+        </div>`
+      )
+      .join('')}
+  </div>
+
+  <div class="totals-section">
+    <div class="totals-label">Period Totals (${snapshots.length} snapshots)</div>
+    <div class="cards">
+      <div class="card grand">
+        <div class="card-label">Period Total</div>
+        <div class="card-value">${formatCurrency(totals.total)}</div>
+      </div>
+      <div class="card recharge">
+        <div class="card-label">Recharge Total</div>
+        <div class="card-value">${formatCurrency(totals.recharge)}</div>
+      </div>
+      <div class="card banking">
+        <div class="card-label">Banking Total</div>
+        <div class="card-value">${formatCurrency(totals.banking)}</div>
+      </div>
+      <div class="card aeps">
+        <div class="card-label">AEPS Total</div>
+        <div class="card-value">${formatCurrency(totals.aeps)}</div>
+      </div>
+      <div class="card cash">
+        <div class="card-label">Cash Total</div>
+        <div class="card-value">${formatCurrency(totals.cash)}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Samwin Infotech Personal Assistant — Accounts Report</div>
+</div>
+<script>window.onload = () => { window.focus(); window.print(); };</script>
+</body></html>`);
+    win.document.close();
+  };
 
   return (
     <div className="mt-8">
-      <div className="flex items-center gap-2 mb-4">
-        <BarChart3 className="w-5 h-5 text-gray-500" />
-        <h2 className="text-lg font-bold text-gray-900">Accounts Report</h2>
-        <span className="text-xs text-gray-400">— live summary based on current balances</span>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Distribution by Section */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-4">Distribution by Section</h3>
-          {grandTotal === 0 ? (
-            <p className="text-sm text-gray-400 italic">Enter balances to see distribution</p>
-          ) : (
-            <div className="space-y-4">
-              {sections.map((s) => {
-                const total = sectionTotals[s.key] || 0;
-                const pct = grandTotal > 0 ? (total / grandTotal) * 100 : 0;
-                const colors = COLOR_MAP[s.color];
-                return (
-                  <div key={s.key}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-sm font-medium ${colors.text}`}>{s.label}</span>
-                      <span className="text-sm text-gray-700">
-                        <span className="font-semibold">{formatCurrency(total)}</span>
-                        <span className="text-xs text-gray-400 ml-2">{pct.toFixed(1)}%</span>
-                      </span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full ${colors.total} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-gray-500" />
+          <h2 className="text-lg font-bold text-gray-900">Accounts Report</h2>
+          <span className="text-xs text-gray-400 hidden sm:inline">— date-wise snapshots</span>
         </div>
-
-        {/* Top Accounts by Balance */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-4">Top Accounts by Balance</h3>
-          {nonZero.length === 0 ? (
-            <p className="text-sm text-gray-400 italic">No accounts with a balance yet</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {nonZero.slice(0, 8).map((a, idx) => {
-                const colors = COLOR_MAP[a.sectionColor];
-                const pct = grandTotal > 0 ? ((a.balance || 0) / grandTotal) * 100 : 0;
-                return (
-                  <div key={a._id} className="py-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-gray-400 font-mono w-5">#{idx + 1}</span>
-                      <span className="text-sm font-medium text-gray-900 truncate">{a.name}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${colors.bg} ${colors.text}`}>{a.sectionLabel}</span>
-                    </div>
-                    <div className="text-right shrink-0 ml-3">
-                      <span className="text-sm font-semibold text-gray-900">{formatCurrency(a.balance)}</span>
-                      <span className="text-xs text-gray-400 ml-2">{pct.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Printer className="w-4 h-4" /> Print
+          </button>
         </div>
       </div>
 
-      {/* Detailed Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-5 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">All Accounts ({allAccounts.length})</h3>
-          {zeros.length > 0 && (
-            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">
-              {zeros.length} with zero balance
-            </span>
-          )}
-        </div>
-        {allAccounts.length === 0 ? (
-          <div className="p-8 text-center text-sm text-gray-400">No accounts yet</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Section</th>
-                  <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Account</th>
-                  <th className="px-5 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Balance</th>
-                  <th className="px-5 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">% of Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {ranked.map((a) => {
-                  const colors = COLOR_MAP[a.sectionColor];
-                  const pct = grandTotal > 0 ? ((a.balance || 0) / grandTotal) * 100 : 0;
-                  return (
-                    <tr key={a._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-2 whitespace-nowrap">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>{a.sectionLabel}</span>
-                      </td>
-                      <td className="px-5 py-2 text-sm font-medium text-gray-900 whitespace-nowrap">{a.name}</td>
-                      <td className={`px-5 py-2 text-right text-sm whitespace-nowrap ${(a.balance || 0) > 0 ? 'font-semibold text-gray-900' : 'text-gray-400'}`}>
-                        {formatCurrency(a.balance)}
-                      </td>
-                      <td className="px-5 py-2 text-right text-xs text-gray-500 whitespace-nowrap">{pct.toFixed(1)}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot className="bg-gray-50">
-                <tr>
-                  <td colSpan={2} className="px-5 py-2.5 text-sm font-bold text-gray-900">GRAND TOTAL</td>
-                  <td className="px-5 py-2.5 text-right text-sm font-bold text-gray-900">{formatCurrency(grandTotal)}</td>
-                  <td className="px-5 py-2.5 text-right text-sm font-medium text-gray-500">100%</td>
-                </tr>
-              </tfoot>
-            </table>
+      {/* Save Snapshot Bar */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Save className="w-4 h-4 text-indigo-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-indigo-900">Save current balances as a snapshot</p>
+            <p className="text-xs text-indigo-700 truncate">
+              Current totals: Recharge {formatCurrency(sectionTotals.recharge)} · Banking {formatCurrency(sectionTotals.banking)} ·
+              AEPS {formatCurrency(sectionTotals.aeps)} · Cash {formatCurrency(sectionTotals.cash)} ·
+              Total {formatCurrency(grandTotal)}
+            </p>
           </div>
-        )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            type="date"
+            value={snapshotDate}
+            onChange={(e) => setSnapshotDate(e.target.value)}
+            className="px-3 py-1.5 text-sm border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-gray-300 transition-colors"
+          >
+            <Save className="w-3.5 h-3.5" />
+            {saveMutation.isPending ? 'Saving...' : 'Save Snapshot'}
+          </button>
+        </div>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white p-3 mb-4 shadow-sm">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+          <input
+            type="date"
+            value={range.from}
+            onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+          <input
+            type="date"
+            value={range.to}
+            onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+        <button
+          onClick={() => setRange({ from: '', to: '' })}
+          className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded transition-colors"
+        >
+          Clear
+        </button>
+        <span className="text-xs text-gray-400 ml-auto">{snapshots.length} snapshot{snapshots.length === 1 ? '' : 's'}</span>
+      </div>
+
+      {/* Snapshots — Card-row per Date */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10 bg-white rounded-xl border border-gray-200 shadow-sm">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        </div>
+      ) : snapshots.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 bg-white rounded-xl border border-gray-200 shadow-sm text-gray-500">
+          <Calendar className="w-10 h-10 text-gray-300 mb-2" />
+          <p className="text-sm font-medium">No snapshots in this date range</p>
+          <p className="text-xs text-gray-400 mt-1">Click "Save Snapshot" above to capture today's balances</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {snapshots.map((s) => (
+            <SnapshotCardRow key={s._id} snapshot={s} onDelete={handleDelete} />
+          ))}
+
+          {/* Month-wide Totals Row */}
+          <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3 pt-4 border-t-2 border-indigo-200">
+            <div className="lg:col-span-1 col-span-2 bg-gradient-to-br from-indigo-700 to-purple-700 text-white rounded-xl p-4 shadow-md">
+              <div className="flex items-center gap-2 mb-1">
+                <IndianRupee className="w-4 h-4 opacity-80" />
+                <span className="text-xs uppercase tracking-wider opacity-80 font-medium">Period Total</span>
+              </div>
+              <p className="text-2xl font-bold">{formatCurrency(totals.total)}</p>
+              <p className="text-xs opacity-70 mt-0.5">{snapshots.length} snapshot{snapshots.length === 1 ? '' : 's'}</p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <div className="flex items-center gap-2 mb-1">
+                <Smartphone className="w-4 h-4 text-blue-600" />
+                <span className="text-xs uppercase tracking-wider font-medium text-blue-700">Recharge</span>
+              </div>
+              <p className="text-xl font-bold text-blue-700">{formatCurrency(totals.recharge)}</p>
+            </div>
+            <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+              <div className="flex items-center gap-2 mb-1">
+                <Building2 className="w-4 h-4 text-green-600" />
+                <span className="text-xs uppercase tracking-wider font-medium text-green-700">Banking</span>
+              </div>
+              <p className="text-xl font-bold text-green-700">{formatCurrency(totals.banking)}</p>
+            </div>
+            <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+              <div className="flex items-center gap-2 mb-1">
+                <Wallet className="w-4 h-4 text-purple-600" />
+                <span className="text-xs uppercase tracking-wider font-medium text-purple-700">AEPS</span>
+              </div>
+              <p className="text-xl font-bold text-purple-700">{formatCurrency(totals.aeps)}</p>
+            </div>
+            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+              <div className="flex items-center gap-2 mb-1">
+                <Banknote className="w-4 h-4 text-amber-600" />
+                <span className="text-xs uppercase tracking-wider font-medium text-amber-700">Cash</span>
+              </div>
+              <p className="text-xl font-bold text-amber-700">{formatCurrency(totals.cash)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Single Snapshot Card-Row (matches top summary card style) ───────────────
+
+function SnapshotCardRow({ snapshot, onDelete }) {
+  const s = snapshot;
+  return (
+    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 hover:border-indigo-300 hover:shadow-sm transition-all">
+      {/* Date label */}
+      <div className="flex items-center justify-between mb-2 px-1">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-indigo-500" />
+          <span className="text-sm font-semibold text-gray-900">{formatDate(s.date)}</span>
+        </div>
+        <button
+          onClick={() => onDelete(s)}
+          className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+          title="Delete snapshot"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* 5-card row matching top summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+        <div className="lg:col-span-1 col-span-2 bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-lg px-3 py-2.5 shadow-sm">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <IndianRupee className="w-3.5 h-3.5 opacity-80" />
+            <span className="text-[10px] uppercase tracking-wider opacity-80 font-medium">Grand Total</span>
+          </div>
+          <p className="text-lg font-bold leading-tight">{formatCurrency(s.total || 0)}</p>
+        </div>
+        <div className="bg-blue-50 rounded-lg px-3 py-2.5 border border-blue-200">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+            <span className="text-[10px] uppercase tracking-wider font-medium text-blue-700">Recharge Accounts</span>
+          </div>
+          <p className="text-base font-bold text-blue-700 leading-tight">{formatCurrency(s.recharge || 0)}</p>
+        </div>
+        <div className="bg-green-50 rounded-lg px-3 py-2.5 border border-green-200">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Building2 className="w-3.5 h-3.5 text-green-600" />
+            <span className="text-[10px] uppercase tracking-wider font-medium text-green-700">Banking Accounts</span>
+          </div>
+          <p className="text-base font-bold text-green-700 leading-tight">{formatCurrency(s.banking || 0)}</p>
+        </div>
+        <div className="bg-purple-50 rounded-lg px-3 py-2.5 border border-purple-200">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Wallet className="w-3.5 h-3.5 text-purple-600" />
+            <span className="text-[10px] uppercase tracking-wider font-medium text-purple-700">AEPS Accounts</span>
+          </div>
+          <p className="text-base font-bold text-purple-700 leading-tight">{formatCurrency(s.aeps || 0)}</p>
+        </div>
+        <div className="bg-amber-50 rounded-lg px-3 py-2.5 border border-amber-200">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Banknote className="w-3.5 h-3.5 text-amber-600" />
+            <span className="text-[10px] uppercase tracking-wider font-medium text-amber-700">Available Cash</span>
+          </div>
+          <p className="text-base font-bold text-amber-700 leading-tight">{formatCurrency(s.cash || 0)}</p>
+        </div>
       </div>
     </div>
   );

@@ -32,6 +32,7 @@ import EmployeeListPage from './features/employees/EmployeeListPage';
 import AttendancePage from './features/employees/AttendancePage';
 import ServicesPage from './features/services/ServicesPage';
 import AccountsPage from './features/accounts/AccountsPage';
+import MaintenancePage from './features/maintenance/MaintenancePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
       { path: 'employees/:id/attendance', element: <AttendancePage /> },
       { path: 'services', element: <ServicesPage /> },
       { path: 'accounts', element: <AccountsPage /> },
+      { path: 'maintenance', element: <MaintenancePage /> },
     ],
   },
 ]);

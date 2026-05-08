@@ -1,4 +1,5 @@
 const Account = require('../models/Account');
+const AccountSnapshot = require('../models/AccountSnapshot');
 const { success, error } = require('../utils/responseHelper');
 
 const DEFAULT_SEEDS = [
@@ -89,6 +90,82 @@ exports.remove = async (req, res, next) => {
   try {
     const doc = await Account.findByIdAndDelete(req.params.id);
     if (!doc) return error(res, 'Account not found', 404);
+    success(res, { message: 'Deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Snapshots ────────────────────────────────────────────────────────────────
+
+function startOfDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+// POST /api/accounts/snapshots — captures current balances under given date (today by default)
+exports.saveSnapshot = async (req, res, next) => {
+  try {
+    const dateInput = req.body?.date ? new Date(req.body.date) : new Date();
+    const date = startOfDay(dateInput);
+
+    const accounts = await Account.find({}).lean();
+    const sums = { recharge: 0, banking: 0, aeps: 0, cash: 0 };
+    const details = accounts.map((a) => {
+      sums[a.section] = (sums[a.section] || 0) + (a.balance || 0);
+      return { section: a.section, name: a.name, balance: a.balance || 0 };
+    });
+    const total = sums.recharge + sums.banking + sums.aeps + sums.cash;
+
+    // Upsert: one snapshot per date
+    const snap = await AccountSnapshot.findOneAndUpdate(
+      { date },
+      {
+        date,
+        recharge: sums.recharge,
+        banking: sums.banking,
+        aeps: sums.aeps,
+        cash: sums.cash,
+        total,
+        details,
+        createdBy: req.user._id,
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    success(res, snap, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/accounts/snapshots?from=&to=
+exports.getSnapshots = async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const query = {};
+    if (from || to) {
+      query.date = {};
+      if (from) query.date.$gte = startOfDay(from);
+      if (to) {
+        const end = new Date(to);
+        end.setHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
+    }
+    const snaps = await AccountSnapshot.find(query).sort({ date: -1 });
+    success(res, snaps);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/accounts/snapshots/:id
+exports.deleteSnapshot = async (req, res, next) => {
+  try {
+    const snap = await AccountSnapshot.findByIdAndDelete(req.params.id);
+    if (!snap) return error(res, 'Snapshot not found', 404);
     success(res, { message: 'Deleted' });
   } catch (err) {
     next(err);

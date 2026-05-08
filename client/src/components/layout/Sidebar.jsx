@@ -27,6 +27,7 @@ const navItems = [
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/vehicle-insurance', label: 'Vehicle Insurance', icon: Car },
   { to: '/services', label: 'Our Services', icon: Wrench },
+  { to: '/maintenance', label: 'Maintenance', icon: Wrench },
   { to: '/credits', label: 'Credit', icon: Wallet },
   { to: '/stock', label: 'Stock', icon: Smartphone },
   { to: '/sales', label: 'Sales', icon: ShoppingBag },

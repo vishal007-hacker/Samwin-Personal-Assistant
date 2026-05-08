@@ -45,3 +45,39 @@ export function useDeleteAccount() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }
+
+// ── Snapshots ──
+
+const SNAP_KEY = 'account-snapshots';
+
+export function useAccountSnapshots(params = {}) {
+  return useQuery({
+    queryKey: [SNAP_KEY, params],
+    queryFn: async () => {
+      const { data } = await api.get('/accounts/snapshots', { params });
+      return data;
+    },
+  });
+}
+
+export function useSaveSnapshot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload = {}) => {
+      const { data } = await api.post('/accounts/snapshots', payload);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [SNAP_KEY] }),
+  });
+}
+
+export function useDeleteSnapshot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      const { data } = await api.delete(`/accounts/snapshots/${id}`);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [SNAP_KEY] }),
+  });
+}

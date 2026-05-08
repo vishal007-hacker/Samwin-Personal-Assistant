@@ -26,6 +26,8 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const Service = require('../models/Service');
 const Account = require('../models/Account');
+const MaintenanceProduct = require('../models/MaintenanceProduct');
+const MaintenanceRecord = require('../models/MaintenanceRecord');
 
 const collections = [
   { name: 'users', model: User },
@@ -49,6 +51,8 @@ const collections = [
   { name: 'attendances', model: Attendance },
   { name: 'services', model: Service },
   { name: 'accounts', model: Account },
+  { name: 'maintenanceProducts', model: MaintenanceProduct },
+  { name: 'maintenanceRecords', model: MaintenanceRecord },
 ];
 
 async function exportData() {
