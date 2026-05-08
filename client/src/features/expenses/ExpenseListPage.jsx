@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import {
   Search, Plus, Loader2, Receipt, X, Edit3, Trash2, Filter, IndianRupee,
-  TrendingUp, Calendar, CreditCard, Tags,
+  TrendingUp, Calendar, CreditCard, Tags, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useExpenses, useExpenseCategories, useExpenseSummary, useCreateExpense, useUpdateExpense, useDeleteExpense, useCreateExpenseCategory } from './expenseApi';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
 const DEFAULT_CATEGORIES = [
   'Rent', 'Salaries', 'Electricity', 'Internet', 'Phone Recharge',
@@ -256,6 +256,20 @@ export default function ExpenseListPage() {
 
   const hasFilters = categoryFilter || paymentFilter || dateFrom || dateTo;
 
+  const handleExport = () => {
+    if (expenses.length === 0) return toast.error('No data to export');
+    const headers = ['Date', 'Title', 'Category', 'Amount', 'Payment Method', 'Notes'];
+    const rows = expenses.map((e) => [
+      formatDate(e.date),
+      e.title,
+      e.category,
+      e.amount,
+      e.paymentMethod,
+      e.notes,
+    ]);
+    exportCSV('expenses.csv', headers, rows);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -270,6 +284,13 @@ export default function ExpenseListPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Tags className="w-4 h-4" /> Custom Category
+          </button>
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
           </button>
           <button
             onClick={() => setFormModal('create')}

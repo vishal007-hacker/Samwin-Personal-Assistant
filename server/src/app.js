@@ -50,6 +50,7 @@ app.use('/api/custom-reminders', require('./routes/customReminderRoutes'));
 app.use('/api/employees', require('./routes/employeeRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/bible-verse', require('./routes/bibleVerseRoutes'));
+app.use('/api/services', require('./routes/serviceRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

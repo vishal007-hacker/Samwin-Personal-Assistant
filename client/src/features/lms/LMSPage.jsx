@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import {
   Plus, Search, Loader2, X, Edit3, Trash2, ExternalLink,
-  GraduationCap, BookOpen, Copy, Eye, EyeOff, Link as LinkIcon, User, Lock, MessageSquare,
+  GraduationCap, BookOpen, Copy, Eye, EyeOff, Link as LinkIcon, User, Lock, MessageSquare, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLMSEntries, useCreateLMS, useUpdateLMS, useDeleteLMS } from './lmsApi';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatDate } from '../../lib/utils';
+import { formatDate, exportCSV } from '../../lib/utils';
 
 // ── Modal Shell ─────────────────────────────────────────────────────────────
 
@@ -273,6 +273,19 @@ export default function LMSPage() {
     }
   };
 
+  const handleExport = () => {
+    if (entries.length === 0) return toast.error('No data to export');
+    const headers = ['Title', 'Link', 'User ID', 'Password', 'Notes'];
+    const rows = entries.map((e) => [
+      e.title,
+      e.link,
+      e.userId,
+      e.password,
+      e.message,
+    ]);
+    exportCSV('lms.csv', headers, rows);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -288,12 +301,21 @@ export default function LMSPage() {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setFormModal('create')}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" /> Add New Work
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setFormModal('create')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Add New Work
+          </button>
+        </div>
       </div>
 
       {/* Search */}

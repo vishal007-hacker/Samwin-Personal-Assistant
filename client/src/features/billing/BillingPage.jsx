@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   Plus, Search, Loader2, Trash2, Eye, Edit3, Printer, X,
-  FileText, Receipt, ClipboardList, ChevronLeft, ChevronRight,
+  FileText, Receipt, ClipboardList, ChevronLeft, ChevronRight, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -9,7 +9,7 @@ import {
   useCreateBilling, useDeleteBilling,
 } from './billingApi';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
 // ── Company Details ─────────────────────────────────────────────────────────
 
@@ -539,6 +539,22 @@ export default function BillingPage() {
     }
   };
 
+  const handleExport = () => {
+    if (billings.length === 0) return toast.error('No data to export');
+    const headers = ['Number', 'Type', 'Date', 'Customer', 'Phone', 'GST', 'Subtotal', 'Total Amount'];
+    const rows = billings.map((b) => [
+      b.number,
+      b.type,
+      formatDate(b.date),
+      b.customer?.name,
+      b.customer?.phone,
+      b.customer?.gst,
+      b.subtotal,
+      b.totalAmount,
+    ]);
+    exportCSV('billing.csv', headers, rows);
+  };
+
   const tabs = [
     { key: '', label: 'All' },
     { key: 'invoice', label: 'Invoices' },
@@ -555,6 +571,13 @@ export default function BillingPage() {
           <p className="text-sm text-gray-500 mt-1">Create invoices, quotations, and receipts</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
           <button onClick={() => setFormType('quotation')}
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 transition-colors">
             <ClipboardList className="w-4 h-4" /> Quotation

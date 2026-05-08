@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Search, Plus, Loader2, X, Edit3, Trash2, IndianRupee, TrendingUp, TrendingDown,
-  Calendar, ShoppingBag, Tags, Filter, BarChart3, ChevronLeft, ChevronRight, Receipt,
+  Calendar, ShoppingBag, Tags, Filter, BarChart3, ChevronLeft, ChevronRight, Receipt, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -10,7 +10,7 @@ import {
 } from './salesApi';
 import { useExpenseSummary } from '../expenses/expenseApi';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },
@@ -415,6 +415,22 @@ export default function SalesPage() {
     }
   };
 
+  const handleExport = () => {
+    if (sales.length === 0) return toast.error('No data to export');
+    const headers = ['Date', 'Category', 'Quantity', 'Unit Price', 'Amount', 'Customer', 'Payment Method', 'Notes'];
+    const rows = sales.map((s) => [
+      formatDate(s.date),
+      s.categoryName,
+      s.quantity,
+      s.unitPrice,
+      s.amount,
+      s.customerName,
+      s.paymentMethod,
+      s.notes,
+    ]);
+    exportCSV('sales.csv', headers, rows);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -429,6 +445,13 @@ export default function SalesPage() {
           </button>
           <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
             <BarChart3 className="w-4 h-4" /> Report
+          </button>
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
           </button>
           <button onClick={() => setFormModal('create')} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <Plus className="w-4 h-4" /> New Sale

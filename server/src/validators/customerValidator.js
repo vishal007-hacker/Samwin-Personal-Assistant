@@ -21,6 +21,7 @@ const createCustomer = Joi.object({
       aadhaarNumber: Joi.string().allow('').trim(),
     })
   ),
+  referral: Joi.string().allow('').trim(),
   notes: Joi.string().allow('').trim(),
 });
 

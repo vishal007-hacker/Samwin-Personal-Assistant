@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Plus, Search, Loader2, X, Edit3, Trash2, Users, Phone, MapPin, IndianRupee, Calendar,
+  Plus, Search, Loader2, X, Edit3, Trash2, Users, Phone, MapPin, IndianRupee, Calendar, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useEmployees, useCreateEmployee, useUpdateEmployee, useDeleteEmployee } from './employeeApi';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
 // ── Modal ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +168,26 @@ export default function EmployeeListPage() {
     }
   };
 
+  const handleExport = () => {
+    if (employees.length === 0) return toast.error('No data to export');
+    const headers = ['Name', 'Phone', 'Email', 'Designation', 'Address', 'Aadhaar', 'Date of Joining', 'Salary', 'Bank Account', 'IFSC', 'Bank Name', 'Active'];
+    const rows = employees.map((e) => [
+      e.name,
+      e.phone,
+      e.email,
+      e.designation,
+      e.address,
+      e.aadhaarNumber,
+      formatDate(e.dateOfJoining),
+      e.salary,
+      e.bankAccount?.accountNumber,
+      e.bankAccount?.ifsc,
+      e.bankAccount?.bankName,
+      e.isActive ? 'Yes' : 'No',
+    ]);
+    exportCSV('employees.csv', headers, rows);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -181,10 +201,19 @@ export default function EmployeeListPage() {
             <p className="text-sm text-gray-500 mt-0.5">Manage staff and track attendance</p>
           </div>
         </div>
-        <button onClick={() => setFormModal('create')}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-          <Plus className="w-4 h-4" /> Add Employee
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+          <button onClick={() => setFormModal('create')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+            <Plus className="w-4 h-4" /> Add Employee
+          </button>
+        </div>
       </div>
 
       {/* Search */}

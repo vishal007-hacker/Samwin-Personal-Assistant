@@ -17,6 +17,7 @@ import {
   GraduationCap,
   BellRing,
   UserCheck,
+  Wrench,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -24,6 +25,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/vehicle-insurance', label: 'Vehicle Insurance', icon: Car },
+  { to: '/services', label: 'Our Services', icon: Wrench },
   { to: '/credits', label: 'Credit', icon: Wallet },
   { to: '/stock', label: 'Stock', icon: Smartphone },
   { to: '/sales', label: 'Sales', icon: ShoppingBag },

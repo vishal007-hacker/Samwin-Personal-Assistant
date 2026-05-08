@@ -9,7 +9,9 @@ import {
   FileText,
   Users,
   Shield,
+  MessageCircle,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../lib/axios';
 import { formatDate, formatCurrency, maskAadhaar, statusColors } from '../../lib/utils';
 import { useCustomer } from './customerApi';
@@ -82,13 +84,32 @@ export default function CustomerProfilePage() {
             <p className="text-sm text-gray-500">Customer Profile</p>
           </div>
         </div>
-        <Link
-          to={`/customers/${id}/edit`}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-        >
-          <Pencil className="h-4 w-4" />
-          Edit
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const digits = (customer.phone || '').replace(/\D/g, '');
+              if (!digits) {
+                toast.error('No phone number for this customer');
+                return;
+              }
+              const phone = digits.length === 10 ? `91${digits}` : digits;
+              const message = `Hi ${customer.name}, this is from Samwin Infotech. We have new offers on our services. Visit us soon!`;
+              window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+            }}
+            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
+            title="Send promotional message on WhatsApp"
+          >
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp
+          </button>
+          <Link
+            to={`/customers/${id}/edit`}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Link>
+        </div>
       </div>
 
       {/* Personal Details */}
@@ -102,6 +123,7 @@ export default function CustomerProfilePage() {
           <InfoRow label="Phone" value={customer.phone} />
           <InfoRow label="Email" value={customer.email} />
           <InfoRow label="Date of Birth" value={formatDate(customer.dateOfBirth)} />
+          <InfoRow label="Referral" value={customer.referral} />
         </div>
       </section>
 

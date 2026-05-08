@@ -27,6 +27,7 @@ const customerSchema = z.object({
   }).optional(),
   aadhaarNumber: z.string().optional(),
   panNumber: z.string().optional(),
+  referral: z.string().optional(),
   nominees: z.array(nomineeSchema).optional(),
 });
 
@@ -66,6 +67,7 @@ export default function CustomerFormPage() {
       address: { street: '', city: '', state: '', pincode: '' },
       aadhaarNumber: '',
       panNumber: '',
+      referral: '',
       nominees: [],
     },
   });
@@ -92,6 +94,7 @@ export default function CustomerFormPage() {
         },
         aadhaarNumber: c.aadhaarNumber || '',
         panNumber: c.panNumber || '',
+        referral: c.referral || '',
         nominees: c.nominees || [],
       });
     }
@@ -104,6 +107,7 @@ export default function CustomerFormPage() {
       if (!formData.dateOfBirth) delete formData.dateOfBirth;
       if (!formData.aadhaarNumber) delete formData.aadhaarNumber;
       if (!formData.panNumber) delete formData.panNumber;
+      if (!formData.referral) delete formData.referral;
 
       if (isEdit) {
         await updateMutation.mutateAsync({ id, data: formData });
@@ -207,6 +211,16 @@ export default function CustomerFormPage() {
                 type="date"
                 {...register('dateOfBirth')}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Referral</label>
+              <input
+                type="text"
+                {...register('referral')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Who referred this customer? (name or phone)"
               />
             </div>
           </div>

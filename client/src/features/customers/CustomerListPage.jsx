@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Plus, Eye, Pencil, Trash2, Loader2, Users } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Loader2, Users, MessageCircle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useCustomers, useDeleteCustomer } from './customerApi';
+import { exportCSV } from '../../lib/utils';
 
 export default function CustomerListPage() {
   const [search, setSearch] = useState('');
@@ -25,6 +26,38 @@ export default function CustomerListPage() {
   const customers = data?.data || [];
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 };
 
+  const openWhatsApp = (customer) => {
+    const digits = (customer.phone || '').replace(/\D/g, '');
+    if (!digits) {
+      toast.error('No phone number for this customer');
+      return;
+    }
+    const phone = digits.length === 10 ? `91${digits}` : digits;
+    const message = `Hi ${customer.name}, this is from Samwin Infotech. We have new offers on our services. Visit us soon!`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleExport = () => {
+    if (!customers.length) return toast.error('No customers to export');
+    exportCSV(
+      'customers.csv',
+      ['Name', 'Phone', 'Email', 'Date of Birth', 'Street', 'City', 'State', 'Pincode', 'Aadhaar', 'PAN', 'Referral'],
+      customers.map((c) => [
+        c.name || '',
+        c.phone || '',
+        c.email || '',
+        c.dateOfBirth ? new Date(c.dateOfBirth).toLocaleDateString('en-IN') : '',
+        c.address?.street || '',
+        c.address?.city || '',
+        c.address?.state || '',
+        c.address?.pincode || '',
+        c.aadhaarNumber || '',
+        c.panNumber || '',
+        c.referral || '',
+      ])
+    );
+  };
+
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
@@ -42,13 +75,22 @@ export default function CustomerListPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-        <Link
-          to="/customers/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add Customer
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+          <Link
+            to="/customers/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add Customer
+          </Link>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -127,23 +169,30 @@ export default function CustomerListPage() {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openWhatsApp(customer)}
+                          className="rounded-md p-1.5 bg-green-100 text-green-600 hover:bg-green-600 hover:text-white transition-colors"
+                          title="Send WhatsApp message"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </button>
                         <Link
                           to={`/customers/${customer._id}`}
-                          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          className="rounded-md p-1.5 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors"
                           title="View"
                         >
                           <Eye className="h-4 w-4" />
                         </Link>
                         <Link
                           to={`/customers/${customer._id}/edit`}
-                          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-amber-600 transition-colors"
+                          className="rounded-md p-1.5 bg-amber-100 text-amber-600 hover:bg-amber-600 hover:text-white transition-colors"
                           title="Edit"
                         >
                           <Pencil className="h-4 w-4" />
                         </Link>
                         <button
                           onClick={() => setDeleteId(customer._id)}
-                          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-600 transition-colors"
+                          className="rounded-md p-1.5 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />

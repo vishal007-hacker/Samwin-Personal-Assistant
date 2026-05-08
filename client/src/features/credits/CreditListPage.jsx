@@ -14,10 +14,11 @@ import {
   X,
   IndianRupee,
   Eye,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCredits, useTopupCredit, usePayCredit, useCloseCredit, useDeleteCredit } from './creditApi';
-import { formatDate, formatCurrency, getDaysUntil, generateWhatsAppLink } from '../../lib/utils';
+import { formatDate, formatCurrency, getDaysUntil, generateWhatsAppLink, exportCSV } from '../../lib/utils';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useAuth } from '../auth/AuthContext';
 
@@ -319,6 +320,20 @@ export default function CreditListPage() {
     { key: 'closed', label: 'Closed' },
   ];
 
+  const handleExport = () => {
+    if (credits.length === 0) return toast.error('No data to export');
+    const headers = ['Customer', 'Reason', 'Total Amount', 'Balance', 'Due Date', 'Status'];
+    const rows = credits.map((c) => [
+      c.customer?.name,
+      c.reason,
+      c.totalAmount,
+      c.balanceAmount,
+      formatDate(c.dueDate),
+      c.status,
+    ]);
+    exportCSV('credits.csv', headers, rows);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -337,6 +352,13 @@ export default function CreditListPage() {
               WhatsApp ({selected.size})
             </button>
           )}
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
           <Link
             to="/credits/new"
             className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

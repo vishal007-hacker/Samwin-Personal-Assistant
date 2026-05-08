@@ -30,6 +30,7 @@ import LMSPage from './features/lms/LMSPage';
 import CustomReminderPage from './features/custom-reminders/CustomReminderPage';
 import EmployeeListPage from './features/employees/EmployeeListPage';
 import AttendancePage from './features/employees/AttendancePage';
+import ServicesPage from './features/services/ServicesPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: 'my-reminders', element: <CustomReminderPage /> },
       { path: 'employees', element: <EmployeeListPage /> },
       { path: 'employees/:id/attendance', element: <AttendancePage /> },
+      { path: 'services', element: <ServicesPage /> },
     ],
   },
 ]);

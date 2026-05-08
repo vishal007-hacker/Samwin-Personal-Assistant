@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
   Plus, Search, Loader2, X, Trash2, Bell, BellOff, BellRing,
-  Clock, Calendar, Repeat, AlertCircle, CheckCircle2, Play, Square,
+  Clock, Calendar, Repeat, AlertCircle, CheckCircle2, Play, Square, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   useCustomReminders, useCreateCustomReminder, useStopCustomReminder, useDeleteCustomReminder,
 } from './customReminderApi';
-import { formatDate } from '../../lib/utils';
+import { formatDate, exportCSV } from '../../lib/utils';
 
 // ── Interval Options ────────────────────────────────────────────────────────
 
@@ -228,6 +228,19 @@ export default function CustomReminderPage() {
     }
   };
 
+  const handleExport = () => {
+    if (reminders.length === 0) return toast.error('No data to export');
+    const headers = ['Title', 'Interval (Minutes)', 'End Date', 'Status', 'Created'];
+    const rows = reminders.map((r) => [
+      r.title,
+      r.intervalMinutes,
+      formatDate(r.endDate),
+      r.status,
+      formatDate(r.createdAt),
+    ]);
+    exportCSV('custom-reminders.csv', headers, rows);
+  };
+
   const tabs = [
     { key: 'active', label: 'Active', icon: BellRing },
     { key: 'inactive', label: 'Completed', icon: CheckCircle2 },
@@ -247,12 +260,21 @@ export default function CustomReminderPage() {
             <p className="text-sm text-gray-500 mt-0.5">Set recurring reminders for important tasks</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" /> New Reminder
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> New Reminder
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs */}

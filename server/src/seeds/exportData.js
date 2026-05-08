@@ -22,6 +22,9 @@ const InsuranceType = require('../models/InsuranceType');
 const Billing = require('../models/Billing');
 const LMS = require('../models/LMS');
 const CustomReminder = require('../models/CustomReminder');
+const Employee = require('../models/Employee');
+const Attendance = require('../models/Attendance');
+const Service = require('../models/Service');
 
 const collections = [
   { name: 'users', model: User },
@@ -41,6 +44,9 @@ const collections = [
   { name: 'billings', model: Billing },
   { name: 'lms', model: LMS },
   { name: 'customReminders', model: CustomReminder },
+  { name: 'employees', model: Employee },
+  { name: 'attendances', model: Attendance },
+  { name: 'services', model: Service },
 ];
 
 async function exportData() {

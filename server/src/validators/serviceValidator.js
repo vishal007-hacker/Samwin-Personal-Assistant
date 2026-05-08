@@ -1,0 +1,23 @@
+const Joi = require('joi');
+
+const createService = Joi.object({
+  date: Joi.date().default(() => new Date()),
+  customer: Joi.string().required().hex().length(24),
+  typeOfWork: Joi.string().valid('new_installation', 'addon_works', 'service').required(),
+  materialsUsed: Joi.string().allow('').trim(),
+  askingPrice: Joi.number().min(0).default(0),
+  receivedCash: Joi.number().min(0).default(0),
+  notes: Joi.string().allow('').trim(),
+});
+
+const updateService = Joi.object({
+  date: Joi.date(),
+  customer: Joi.string().hex().length(24),
+  typeOfWork: Joi.string().valid('new_installation', 'addon_works', 'service'),
+  materialsUsed: Joi.string().allow('').trim(),
+  askingPrice: Joi.number().min(0),
+  receivedCash: Joi.number().min(0),
+  notes: Joi.string().allow('').trim(),
+});
+
+module.exports = { createService, updateService };

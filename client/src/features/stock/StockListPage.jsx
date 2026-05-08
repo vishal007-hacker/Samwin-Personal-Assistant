@@ -10,11 +10,12 @@ import {
   ShoppingCart,
   X,
   BarChart3,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useStocks, useBrands, useCreateStock, useUpdateStock, useSellStock, useDeleteStock } from './stockApi';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatCurrency } from '../../lib/utils';
+import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
 // ── Brand Options ───────────────────────────────────────────────────────────
 
@@ -313,6 +314,32 @@ export default function StockListPage({ category = 'mobile' }) {
     }
   };
 
+  const handleExport = () => {
+    if (stocks.length === 0) return toast.error('No data to export');
+    const filename =
+      category === 'mobile' ? 'stock-mobile.csv'
+        : category === 'phone_accessory' ? 'stock-phone-accessories.csv'
+        : 'stock-computer-accessories.csv';
+    const headers = config.hasSpecs
+      ? ['Code', 'Brand', 'Model', 'RAM', 'Storage', 'Display', 'Color', 'Purchase Price', 'Selling Price', 'Status', 'Sold To', 'Sold Price', 'Sold Date']
+      : ['Code', 'Brand', 'Model', 'Purchase Price', 'Selling Price', 'Status', 'Sold To', 'Sold Price', 'Sold Date'];
+    const rows = stocks.map((s) => {
+      const base = config.hasSpecs
+        ? [s.uniqueCode, s.brand, s.model, s.ram, s.storage, s.displaySize, s.color]
+        : [s.uniqueCode, s.brand, s.model];
+      return [
+        ...base,
+        s.purchasePrice,
+        s.sellingPrice,
+        s.status,
+        s.soldTo?.customerName,
+        s.soldTo?.finalPrice,
+        formatDate(s.soldAt),
+      ];
+    });
+    exportCSV(filename, headers, rows);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -328,6 +355,13 @@ export default function StockListPage({ category = 'mobile' }) {
           >
             <BarChart3 className="w-4 h-4" /> Report
           </Link>
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
           <button
             onClick={() => setFormModal('create')}
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

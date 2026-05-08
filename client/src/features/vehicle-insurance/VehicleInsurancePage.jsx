@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
   Search, Plus, Loader2, Car, Edit3, Trash2, X, AlertTriangle, Eye, Upload, FileText, MessageCircle,
-  Shield, IndianRupee, Clock,
+  Shield, IndianRupee, Clock, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchCustomers } from '../customers/customerApi';
 import { useDebounce } from '../../hooks/useDebounce';
-import { formatDate, formatCurrency, getDaysUntil } from '../../lib/utils';
+import { formatDate, formatCurrency, getDaysUntil, exportCSV } from '../../lib/utils';
 import api from '../../lib/axios';
 import {
   useVehicleInsurances,
@@ -538,6 +538,29 @@ export default function VehicleInsurancePage() {
     }
   };
 
+  const handleExport = () => {
+    if (items.length === 0) return toast.error('No data to export');
+    const headers = ['Customer', 'Phone', 'Vehicle No', 'Brand', 'Model', 'Year', 'Insurance Type', 'Policy Company', 'Policy No', 'Expiry', 'Status'];
+    const rows = items.map((c) => {
+      const daysUntil = getDaysUntil(c.policyExpiryDate);
+      const status = daysUntil !== null && daysUntil < 0 ? 'Expired' : daysUntil !== null && daysUntil <= 10 ? 'Expiring Soon' : 'Active';
+      return [
+        c.customer?.name,
+        c.customer?.phone,
+        c.vehicleNumber,
+        c.vehicleBrand,
+        c.model,
+        c.yearOfManufacturing,
+        c.insuranceType,
+        c.policyCompany,
+        c.policyNumber,
+        formatDate(c.policyExpiryDate),
+        status,
+      ];
+    });
+    exportCSV('vehicle-insurance.csv', headers, rows);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -546,12 +569,21 @@ export default function VehicleInsurancePage() {
           <h1 className="text-2xl font-bold text-gray-900">Vehicle Insurance</h1>
           <p className="text-sm text-gray-500 mt-1">Manage vehicle insurance policies & reminders</p>
         </div>
-        <button
-          onClick={() => setFormModal('create')}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Create
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setFormModal('create')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Create
+          </button>
+        </div>
       </div>
 
       {/* Stat Cards */}

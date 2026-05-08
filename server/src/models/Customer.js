@@ -25,6 +25,7 @@ const customerSchema = new mongoose.Schema(
         aadhaarNumber: { type: String, trim: true },
       },
     ],
+    referral: { type: String, trim: true },
     notes: { type: String, trim: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
