@@ -16,6 +16,7 @@ const createStock = Joi.object({
 });
 
 const updateStock = Joi.object({
+  uniqueCode: Joi.number().integer().min(1),
   category: Joi.string().valid('mobile', 'phone_accessory', 'computer_accessory'),
   brand: Joi.string(),
   model: Joi.string(),

@@ -23,6 +23,11 @@ export const fetchStockReport = async (params = {}) => {
   return data;
 };
 
+export const fetchNextStockCode = async () => {
+  const { data } = await api.get('/stock/next-code');
+  return data;
+};
+
 export const createStockApi = async (stockData) => {
   const { data } = await api.post('/stock', stockData);
   return data;
@@ -73,6 +78,15 @@ export function useStockReport(params = {}) {
     queryKey: ['stock', 'report', params],
     queryFn: () => fetchStockReport(params),
     keepPreviousData: true,
+  });
+}
+
+export function useNextStockCode(enabled = true) {
+  return useQuery({
+    queryKey: ['stock', 'next-code'],
+    queryFn: fetchNextStockCode,
+    enabled,
+    staleTime: 0,
   });
 }
 

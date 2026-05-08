@@ -14,6 +14,9 @@ import {
   ArrowRight,
   X,
   RotateCcw,
+  Database,
+  Archive,
+  Upload,
   Car,
   TrendingUp,
   TrendingDown,
@@ -286,7 +289,98 @@ function openWhatsApp(item) {
 export default function DashboardPage() {
   const [paymentModal, setPaymentModal] = useState({ open: false, payment: null });
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [backingUp, setBackingUp] = useState(null); // 'data' | 'full' | null
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restoring, setRestoring] = useState(false);
   const queryClient = useQueryClient();
+
+  // ── Backup handlers ──
+  const downloadFromApi = async (path, fallbackName) => {
+    const token = localStorage.getItem('token');
+    const baseUrl = import.meta.env.VITE_API_URL || '/api';
+    const res = await fetch(`${baseUrl}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = 'Backup failed';
+      try { msg = JSON.parse(text)?.message || msg; } catch { /* not JSON */ }
+      throw new Error(msg);
+    }
+    // Filename from Content-Disposition, fall back to provided name
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^"]+)"?/i);
+    const filename = match ? match[1] : fallbackName;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBackupData = async () => {
+    setBackingUp('data');
+    try {
+      await downloadFromApi('/backup/data', 'samwin-data-backup.json');
+      toast.success('Data backup downloaded');
+    } catch (err) {
+      toast.error(err.message || 'Failed');
+    } finally {
+      setBackingUp(null);
+    }
+  };
+
+  const handleBackupFull = async () => {
+    setBackingUp('full');
+    try {
+      await downloadFromApi('/backup/full', 'samwin-full-backup.zip');
+      toast.success('Full backup downloaded');
+    } catch (err) {
+      toast.error(err.message || 'Failed');
+    } finally {
+      setBackingUp(null);
+    }
+  };
+
+  const handleRestoreFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) setRestoreFile(file);
+    e.target.value = ''; // allow re-selecting same file
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreFile) return;
+    setRestoring(true);
+    try {
+      const token = localStorage.getItem('token');
+      const baseUrl = import.meta.env.VITE_API_URL || '/api';
+      const fd = new FormData();
+      fd.append('file', restoreFile);
+      const res = await fetch(`${baseUrl}/backup/restore`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Restore failed');
+      }
+      const total = json.data?.totalDocs ?? 0;
+      const errors = json.data?.errors ?? [];
+      toast.success(`Restored ${total} documents${errors.length ? ` (${errors.length} errors)` : ''}`);
+      if (errors.length) console.warn('Restore errors:', errors);
+      setRestoreFile(null);
+      queryClient.invalidateQueries(); // refresh all data on the page
+    } catch (err) {
+      toast.error(err.message || 'Failed');
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   const resetMutation = useMutation({
     mutationFn: async () => {
@@ -401,14 +495,38 @@ export default function DashboardPage() {
       )}
 
       {/* Page Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <button
-          onClick={() => setShowResetConfirm(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
-        >
-          <RotateCcw className="w-4 h-4" /> Reset All Data
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleBackupData}
+            disabled={backingUp !== null}
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg font-medium hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Download all DB data as JSON"
+          >
+            {backingUp === 'data' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            Backup Data
+          </button>
+          <button
+            onClick={handleBackupFull}
+            disabled={backingUp !== null}
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-indigo-300 text-indigo-700 bg-indigo-50 rounded-lg font-medium hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Download source code + DB data as a zip"
+          >
+            {backingUp === 'full' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+            Download Full Backup
+          </button>
+          <label className="inline-flex items-center gap-2 px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg font-medium hover:bg-amber-100 cursor-pointer transition-colors">
+            <Upload className="w-4 h-4" />
+            Restore Backup
+            <input
+              type="file"
+              accept=".json,application/json"
+              onChange={handleRestoreFileSelect}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
 
       {/* ── Stat Cards (Sales Dashboard) ── */}
@@ -793,6 +911,49 @@ export default function DashboardPage() {
                 className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-300 transition-colors"
               >
                 {resetMutation.isPending ? 'Resetting...' : 'Reset Everything'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Restore Confirmation Modal ── */}
+      {restoreFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => !restoring && setRestoreFile(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-amber-100 rounded-full">
+                <Upload className="w-6 h-6 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Restore Backup</h3>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">File</p>
+              <p className="text-sm font-mono text-gray-900 truncate" title={restoreFile.name}>{restoreFile.name}</p>
+              <p className="text-xs text-gray-500 mt-1">{(restoreFile.size / 1024).toFixed(1)} KB</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-amber-800 font-medium mb-1">⚠️ This will REPLACE your current data</p>
+              <p className="text-xs text-amber-700">
+                Each collection in the backup will be wiped and re-inserted. Tip: click "Backup Data" first to save a safety copy of your current state before restoring.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRestoreFile(null)}
+                disabled={restoring}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRestoreConfirm}
+                disabled={restoring}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:bg-gray-300 transition-colors"
+              >
+                {restoring && <Loader2 className="w-4 h-4 animate-spin" />}
+                {restoring ? 'Restoring...' : 'Restore Now'}
               </button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Stock = require('../models/Stock');
 const { success, paginated, error } = require('../utils/responseHelper');
 
@@ -118,6 +119,17 @@ exports.getBrands = async (req, res, next) => {
 };
 
 // GET /api/stock/report/summary — purchase/sell summary
+// GET /api/stock/next-code — peek at next unique code without incrementing
+exports.getNextCode = async (req, res, next) => {
+  try {
+    const Counter = mongoose.model('Counter');
+    const c = await Counter.findById('stockCode');
+    success(res, { nextCode: (c?.seq || 0) + 1 });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getReport = async (req, res, next) => {
   try {
     const { from, to, brand, status, category } = req.query;

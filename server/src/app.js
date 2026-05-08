@@ -53,6 +53,8 @@ app.use('/api/bible-verse', require('./routes/bibleVerseRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/accounts', require('./routes/accountRoutes'));
 app.use('/api/maintenance', require('./routes/maintenanceRoutes'));
+app.use('/api/backup', require('./routes/backupRoutes'));
+app.use('/api/device-service', require('./routes/deviceServiceRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -6,7 +6,7 @@ import {
 import toast from 'react-hot-toast';
 import {
   useBillings, useBilling, useNextNumber,
-  useCreateBilling, useDeleteBilling,
+  useCreateBilling, useUpdateBilling, useDeleteBilling,
 } from './billingApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
@@ -254,19 +254,49 @@ function InvoicePrint({ billing, onClose }) {
 
 // ── Billing Form Modal ──────────────────────────────────────────────────────
 
-function BillingFormModal({ type, onClose }) {
+function BillingFormModal({ type, entry, onClose }) {
+  const isEdit = !!entry;
+  const effectiveType = isEdit ? entry.type : type;
   const createMutation = useCreateBilling();
-  const { data: nextData } = useNextNumber(type);
+  const updateMutation = useUpdateBilling();
+  const mutation = isEdit ? updateMutation : createMutation;
+  const { data: nextData } = useNextNumber(effectiveType);
   const nextNumber = nextData?.data?.nextNumber || '...';
 
-  const typeLabel = type === 'invoice' ? 'Invoice' : type === 'quotation' ? 'Quotation' : 'Receipt';
+  const typeLabel = effectiveType === 'invoice' ? 'Invoice' : effectiveType === 'quotation' ? 'Quotation' : 'Receipt';
 
-  const [customer, setCustomer] = useState({ name: '', address: '', phone: '', gst: '' });
-  const [items, setItems] = useState([{ description: '', hsn: '', quantity: 1, unit: 'Nos', price: '', taxableValue: 0 }]);
-  const [cgstRate, setCgstRate] = useState(type === 'invoice' ? 9 : 0);
-  const [sgstRate, setSgstRate] = useState(type === 'invoice' ? 9 : 0);
-  const [notes, setNotes] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [customer, setCustomer] = useState(
+    isEdit
+      ? {
+          name: entry.customer?.name || '',
+          address: entry.customer?.address || '',
+          phone: entry.customer?.phone || '',
+          gst: entry.customer?.gst || '',
+        }
+      : { name: '', address: '', phone: '', gst: '' }
+  );
+  const [items, setItems] = useState(
+    isEdit && entry.items?.length
+      ? entry.items.map((i) => ({
+          description: i.description || '',
+          hsn: i.hsn || '',
+          quantity: i.quantity ?? 1,
+          unit: i.unit || 'Nos',
+          price: i.price ?? '',
+          taxableValue: i.taxableValue ?? 0,
+        }))
+      : [{ description: '', hsn: '', quantity: 1, unit: 'Nos', price: '', taxableValue: 0 }]
+  );
+  const [cgstRate, setCgstRate] = useState(
+    isEdit ? (entry.cgstRate ?? 0) : (effectiveType === 'invoice' ? 9 : 0)
+  );
+  const [sgstRate, setSgstRate] = useState(
+    isEdit ? (entry.sgstRate ?? 0) : (effectiveType === 'invoice' ? 9 : 0)
+  );
+  const [notes, setNotes] = useState(isEdit ? (entry.notes || '') : '');
+  const [date, setDate] = useState(
+    isEdit && entry.date ? entry.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
+  );
 
   const setCustomerField = (key) => (e) => setCustomer((c) => ({ ...c, [key]: e.target.value }));
 
@@ -299,10 +329,10 @@ function BillingFormModal({ type, onClose }) {
 
     try {
       const payload = {
-        type,
+        type: effectiveType,
         date,
         customer,
-        showGst: type === 'invoice',
+        showGst: effectiveType === 'invoice',
         items: items.map((i) => ({
           ...i,
           quantity: Number(i.quantity),
@@ -318,11 +348,16 @@ function BillingFormModal({ type, onClose }) {
         notes,
       };
 
-      await createMutation.mutateAsync(payload);
-      toast.success(`${typeLabel} created successfully!`);
+      if (isEdit) {
+        await updateMutation.mutateAsync({ id: entry._id, ...payload });
+        toast.success(`${typeLabel} updated successfully!`);
+      } else {
+        await createMutation.mutateAsync(payload);
+        toast.success(`${typeLabel} created successfully!`);
+      }
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create');
+      toast.error(err.response?.data?.message || (isEdit ? 'Failed to update' : 'Failed to create'));
     }
   };
 
@@ -333,8 +368,12 @@ function BillingFormModal({ type, onClose }) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4 my-4">
         <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white rounded-t-xl z-10">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">New {typeLabel}</h2>
-            <p className="text-sm text-gray-500">Next number: <span className="font-mono font-semibold text-blue-600">{nextNumber}</span></p>
+            <h2 className="text-lg font-semibold text-gray-900">{isEdit ? `Edit ${typeLabel}` : `New ${typeLabel}`}</h2>
+            <p className="text-sm text-gray-500">
+              {isEdit
+                ? <>Number: <span className="font-mono font-semibold text-blue-600">{entry.number}</span></>
+                : <>Next number: <span className="font-mono font-semibold text-blue-600">{nextNumber}</span></>}
+            </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
@@ -484,9 +523,9 @@ function BillingFormModal({ type, onClose }) {
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={createMutation.isPending}
+            <button type="submit" disabled={mutation.isPending}
               className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 transition-colors">
-              {createMutation.isPending ? 'Creating...' : `Create ${typeLabel}`}
+              {mutation.isPending ? (isEdit ? 'Updating...' : 'Creating...') : (isEdit ? `Update ${typeLabel}` : `Create ${typeLabel}`)}
             </button>
           </div>
         </form>
@@ -523,6 +562,7 @@ export default function BillingPage() {
   const pagination = data?.pagination || {};
 
   const [formType, setFormType] = useState(null);       // 'invoice' | 'quotation' | 'receipt'
+  const [editEntry, setEditEntry] = useState(null);     // billing object when editing
   const [previewId, setPreviewId] = useState(null);
 
   // Fetch full billing for preview
@@ -669,8 +709,12 @@ export default function BillingPage() {
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
                             <Printer className="w-3.5 h-3.5" /> Print
                           </button>
+                          <button onClick={() => setEditEntry(b)} title="Edit"
+                            className="rounded-md p-1.5 bg-amber-100 text-amber-600 hover:bg-amber-600 hover:text-white transition-colors">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
                           <button onClick={() => handleDelete(b)} title="Delete"
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            className="rounded-md p-1.5 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -703,6 +747,7 @@ export default function BillingPage() {
 
       {/* Form Modal */}
       {formType && <BillingFormModal type={formType} onClose={() => setFormType(null)} />}
+      {editEntry && <BillingFormModal entry={editEntry} onClose={() => setEditEntry(null)} />}
 
       {/* Print Preview Modal */}
       {previewId && previewBilling && (

@@ -1,0 +1,16 @@
+[
+  {
+    "_id": "69fc7d6340b2eab9bb9f5898",
+    "date": "2026-05-07T00:00:00.000Z",
+    "customer": "69fc7d4940b2eab9bb9f5874",
+    "typeOfWork": "service",
+    "materialsUsed": "",
+    "askingPrice": 0,
+    "receivedCash": 0,
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-07T11:54:11.874Z",
+    "updatedAt": "2026-05-07T11:54:11.874Z",
+    "__v": 0
+  }
+]

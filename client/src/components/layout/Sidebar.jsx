@@ -19,6 +19,7 @@ import {
   UserCheck,
   Wrench,
   Banknote,
+  Hammer,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -27,6 +28,7 @@ const navItems = [
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/vehicle-insurance', label: 'Vehicle Insurance', icon: Car },
   { to: '/services', label: 'Our Services', icon: Wrench },
+  { to: '/device-service', label: 'Device Service', icon: Hammer },
   { to: '/maintenance', label: 'Maintenance', icon: Wrench },
   { to: '/credits', label: 'Credit', icon: Wallet },
   { to: '/stock', label: 'Stock', icon: Smartphone },

@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
 const mongoose = require('mongoose');
+const { success, error } = require('../utils/responseHelper');
 
 // All models with their collection name in the export
 const COLLECTIONS = [
@@ -25,6 +26,11 @@ const COLLECTIONS = [
   { name: 'employees', model: 'Employee' },
   { name: 'attendances', model: 'Attendance' },
   { name: 'services', model: 'Service' },
+  { name: 'accounts', model: 'Account' },
+  { name: 'accountSnapshots', model: 'AccountSnapshot' },
+  { name: 'maintenanceProducts', model: 'MaintenanceProduct' },
+  { name: 'maintenanceRecords', model: 'MaintenanceRecord' },
+  { name: 'deviceServices', model: 'DeviceService' },
 ];
 
 async function gatherData() {
@@ -49,6 +55,11 @@ async function gatherData() {
   require('../models/Employee');
   require('../models/Attendance');
   require('../models/Service');
+  require('../models/Account');
+  require('../models/AccountSnapshot');
+  require('../models/MaintenanceProduct');
+  require('../models/MaintenanceRecord');
+  require('../models/DeviceService');
 
   const result = { exportedAt: new Date().toISOString(), collections: {} };
   for (const { name, model } of COLLECTIONS) {
@@ -172,6 +183,105 @@ Restore notes:
     archive.append(readme, { name: 'README-BACKUP.txt' });
 
     await archive.finalize();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/backup/restore — accepts a JSON file (from "Backup Data" download)
+// and replaces each collection's contents.
+exports.restoreBackup = async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return error(res, 'No backup file uploaded', 400);
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(req.file.buffer.toString('utf-8'));
+    } catch (e) {
+      return error(res, 'Invalid JSON file: ' + e.message, 400);
+    }
+
+    // Accept two shapes:
+    //   1. { exportedAt, collections: { users: [...], ... } }   — from Backup Data button
+    //   2. { users: [...], customers: [...] }                   — flat
+    const data = parsed.collections || parsed;
+    if (typeof data !== 'object' || data === null) {
+      return error(res, 'Backup file does not contain collection data', 400);
+    }
+
+    // Lazy-require all models so they're registered
+    require('../models/User');
+    require('../models/Customer');
+    require('../models/Scheme');
+    require('../models/Policy');
+    require('../models/Payment');
+    require('../models/Credit');
+    require('../models/Notification');
+    require('../models/Stock');
+    require('../models/Expense');
+    require('../models/ExpenseCategory');
+    require('../models/Sale');
+    require('../models/SalesCategory');
+    require('../models/VehicleInsurance');
+    require('../models/InsuranceType');
+    require('../models/Billing');
+    require('../models/LMS');
+    require('../models/CustomReminder');
+    require('../models/Employee');
+    require('../models/Attendance');
+    require('../models/Service');
+    require('../models/Account');
+    require('../models/AccountSnapshot');
+    require('../models/MaintenanceProduct');
+    require('../models/MaintenanceRecord');
+    require('../models/DeviceService');
+
+    const result = { restored: {}, skipped: [], totalDocs: 0, errors: [] };
+
+    for (const { name, model } of COLLECTIONS) {
+      const docs = data[name];
+      if (!Array.isArray(docs)) {
+        result.skipped.push(name);
+        continue;
+      }
+      try {
+        const Model = mongoose.model(model);
+        await Model.deleteMany({});
+        if (docs.length > 0) {
+          await Model.insertMany(docs, { ordered: false });
+        }
+        result.restored[name] = docs.length;
+        result.totalDocs += docs.length;
+      } catch (err) {
+        result.errors.push({ collection: name, message: err.message });
+      }
+    }
+
+    // Counters
+    if (Array.isArray(data.counters)) {
+      try {
+        const col = mongoose.connection.db.collection('counters');
+        await col.deleteMany({});
+        if (data.counters.length > 0) await col.insertMany(data.counters);
+        result.restored.counters = data.counters.length;
+      } catch (err) {
+        result.errors.push({ collection: 'counters', message: err.message });
+      }
+    }
+    if (Array.isArray(data.billingCounters)) {
+      try {
+        const col = mongoose.connection.db.collection('billingcounters');
+        await col.deleteMany({});
+        if (data.billingCounters.length > 0) await col.insertMany(data.billingCounters);
+        result.restored.billingCounters = data.billingCounters.length;
+      } catch (err) {
+        result.errors.push({ collection: 'billingCounters', message: err.message });
+      }
+    }
+
+    success(res, result);
   } catch (err) {
     next(err);
   }

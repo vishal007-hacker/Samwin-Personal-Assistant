@@ -309,6 +309,170 @@ function openWhatsApp(name, contact) {
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
+// ── Product Detail Modal (shows full history for one product) ──────────────
+
+function ProductDetailModal({ product, records, onClose, onAddRecord, onEditProduct, onEditRecord, onDeleteRecord }) {
+  const productRecords = useMemo(
+    () => records.filter((r) => r.product?._id === product._id).sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [records, product._id]
+  );
+
+  const totalCost = productRecords.reduce((s, r) => s + (r.cost || 0), 0);
+  const status = statusFromDue(product.nextMaintenanceDate);
+
+  return (
+    <Modal title="" onClose={onClose} wide>
+      {/* Product Header */}
+      <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl p-5 mb-5 -mt-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Wrench className="w-5 h-5 opacity-80" />
+              <h2 className="text-xl font-bold truncate">{product.name}</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm opacity-90">
+              {product.category && <span className="inline-flex items-center gap-1"><Tag className="w-3.5 h-3.5" />{product.category}</span>}
+              {product.location && <span className="inline-flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{product.location}</span>}
+              {product.serialNumber && <span>S/N: {product.serialNumber}</span>}
+              {!product.isActive && <span className="bg-red-500/30 px-2 py-0.5 rounded text-xs">Inactive</span>}
+            </div>
+            {product.notes && <p className="text-xs opacity-80 mt-2">{product.notes}</p>}
+          </div>
+          <button
+            onClick={() => onEditProduct(product)}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+            title="Edit product"
+          >
+            <Edit3 className="w-3.5 h-3.5" /> Edit
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="bg-blue-50 rounded-lg px-3 py-2.5 border border-blue-100">
+          <p className="text-[10px] uppercase font-semibold text-blue-600 tracking-wider">Frequency</p>
+          <p className="text-lg font-bold text-blue-700">Every {product.frequencyDays} days</p>
+        </div>
+        <div className="bg-amber-50 rounded-lg px-3 py-2.5 border border-amber-100">
+          <p className="text-[10px] uppercase font-semibold text-amber-600 tracking-wider">Next Due</p>
+          <p className="text-sm font-bold text-amber-700">{product.nextMaintenanceDate ? formatDate(product.nextMaintenanceDate) : '-'}</p>
+          <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded mt-0.5 ${status.cls}`}>{status.label}</span>
+        </div>
+        <div className="bg-green-50 rounded-lg px-3 py-2.5 border border-green-100">
+          <p className="text-[10px] uppercase font-semibold text-green-600 tracking-wider">Services</p>
+          <p className="text-lg font-bold text-green-700">{productRecords.length}</p>
+        </div>
+        <div className="bg-purple-50 rounded-lg px-3 py-2.5 border border-purple-100">
+          <p className="text-[10px] uppercase font-semibold text-purple-600 tracking-wider">Total Spent</p>
+          <p className="text-lg font-bold text-purple-700">{formatCurrency(totalCost)}</p>
+        </div>
+      </div>
+
+      {/* History Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-gray-500" />
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600">Maintenance History</h3>
+          <span className="text-xs text-gray-400">({productRecords.length})</span>
+        </div>
+        <button
+          onClick={() => onAddRecord(product._id)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add Record
+        </button>
+      </div>
+
+      {/* History Records */}
+      {productRecords.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-500">
+          <History className="w-8 h-8 text-gray-300 mb-2" />
+          <p className="text-sm">No maintenance records yet</p>
+          <button
+            onClick={() => onAddRecord(product._id)}
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:underline"
+          >
+            <Plus className="w-3.5 h-3.5" /> Record first service
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {productRecords.map((r) => (
+            <div key={r._id} className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:shadow-sm transition-all">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-gray-900">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" /> {formatDate(r.date)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-sm font-bold text-purple-700">
+                      <IndianRupee className="w-3 h-3" /> {formatCurrency(r.cost)}
+                    </span>
+                    {r.nextDueDate && (
+                      <span className="text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                        Next: {formatDate(r.nextDueDate)}
+                      </span>
+                    )}
+                  </div>
+                  {r.workDone && (
+                    <p className="text-sm text-gray-700 mb-1.5">
+                      <span className="font-medium text-gray-500 text-xs uppercase tracking-wider mr-1">Work:</span>
+                      {r.workDone}
+                    </p>
+                  )}
+                  {(r.servicePersonName || r.servicePersonContact) && (
+                    <div className="flex items-center gap-3 text-xs text-gray-600 mb-1">
+                      {r.servicePersonName && (
+                        <span className="inline-flex items-center gap-1">
+                          <User className="w-3 h-3 text-gray-400" /> {r.servicePersonName}
+                        </span>
+                      )}
+                      {r.servicePersonContact && (
+                        <span className="inline-flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-gray-400" /> {r.servicePersonContact}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {r.notes && (
+                    <p className="text-xs text-gray-500 italic">{r.notes}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {r.servicePersonContact && (
+                    <button
+                      onClick={() => openWhatsApp(r.servicePersonName, r.servicePersonContact)}
+                      className="rounded-md p-1.5 bg-green-100 text-green-600 hover:bg-green-600 hover:text-white transition-colors"
+                      title="WhatsApp service person"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onEditRecord(r)}
+                    className="rounded-md p-1.5 bg-amber-100 text-amber-600 hover:bg-amber-600 hover:text-white transition-colors"
+                    title="Edit"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onDeleteRecord(r)}
+                    className="rounded-md p-1.5 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────────────────
 
 export default function MaintenancePage() {
@@ -316,6 +480,7 @@ export default function MaintenancePage() {
   const [productModal, setProductModal] = useState(null);
   const [recordModal, setRecordModal] = useState(null);
   const [historyForProduct, setHistoryForProduct] = useState(null);
+  const [detailProduct, setDetailProduct] = useState(null);
 
   const { data: productsData, isLoading: prodLoading } = useMaintenanceProducts({
     search: search || undefined,
@@ -538,12 +703,18 @@ export default function MaintenancePage() {
                   return (
                     <tr key={p._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-5 py-3">
-                        <p className="text-sm font-medium text-gray-900">{p.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          {p.category && <span className="inline-flex items-center gap-0.5"><Tag className="w-3 h-3" />{p.category}</span>}
-                          {p.serialNumber && <span>· {p.serialNumber}</span>}
-                          {!p.isActive && <span className="text-red-500">· Inactive</span>}
-                        </div>
+                        <button
+                          onClick={() => setDetailProduct(p)}
+                          className="text-left group"
+                          title="Click to view full history"
+                        >
+                          <p className="text-sm font-medium text-blue-600 group-hover:text-blue-800 group-hover:underline">{p.name}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            {p.category && <span className="inline-flex items-center gap-0.5"><Tag className="w-3 h-3" />{p.category}</span>}
+                            {p.serialNumber && <span>· {p.serialNumber}</span>}
+                            {!p.isActive && <span className="text-red-500">· Inactive</span>}
+                          </div>
+                        </button>
                       </td>
                       <td className="px-5 py-3 text-sm text-gray-700">
                         {p.location ? (
@@ -581,9 +752,9 @@ export default function MaintenancePage() {
                             <Plus className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => setHistoryForProduct(historyForProduct?._id === p._id ? null : p)}
-                            className={`rounded-md p-1.5 transition-colors ${historyForProduct?._id === p._id ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white'}`}
-                            title="View history"
+                            onClick={() => setDetailProduct(p)}
+                            className="rounded-md p-1.5 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors"
+                            title="View full history"
                           >
                             <History className="h-4 w-4" />
                           </button>
@@ -804,6 +975,26 @@ export default function MaintenancePage() {
           defaultProductId={recordModal?.defaultProductId}
           products={products}
           onClose={() => setRecordModal(null)}
+        />
+      )}
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          records={records}
+          onClose={() => setDetailProduct(null)}
+          onAddRecord={(productId) => {
+            setDetailProduct(null);
+            setRecordModal({ defaultProductId: productId });
+          }}
+          onEditProduct={(p) => {
+            setDetailProduct(null);
+            setProductModal(p);
+          }}
+          onEditRecord={(r) => {
+            setDetailProduct(null);
+            setRecordModal(r);
+          }}
+          onDeleteRecord={handleDeleteRecord}
         />
       )}
     </div>

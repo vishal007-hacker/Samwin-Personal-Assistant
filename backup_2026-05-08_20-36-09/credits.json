@@ -1,0 +1,84 @@
+[
+  {
+    "_id": "69a9858e78edc83db7a75d7b",
+    "customer": "69a9856778edc83db7a75d67",
+    "reason": "cash",
+    "totalAmount": 2000,
+    "balanceAmount": 1500,
+    "dueDate": "2026-03-20T00:00:00.000Z",
+    "status": "open",
+    "transactions": [
+      {
+        "type": "credit",
+        "amount": 1000,
+        "dueDate": "2026-03-20T00:00:00.000Z",
+        "paidAmount": 500,
+        "notes": "Initial credit",
+        "date": "2026-03-05T13:30:54.403Z",
+        "_id": "69a9858e78edc83db7a75d7c"
+      },
+      {
+        "type": "topup",
+        "amount": 1000,
+        "dueDate": "2026-03-22T00:00:00.000Z",
+        "paidAmount": 0,
+        "notes": "Top-up",
+        "date": "2026-03-05T13:32:06.384Z",
+        "_id": "69a985d678edc83db7a75da1"
+      },
+      {
+        "type": "payment",
+        "amount": 500,
+        "paidAmount": 0,
+        "notes": "Payment",
+        "date": "2026-03-05T13:32:44.938Z",
+        "_id": "69a985fc78edc83db7a75db9"
+      }
+    ],
+    "createdBy": "69a70de5cf1e9eaf50e0ef2c",
+    "createdAt": "2026-03-05T13:30:54.406Z",
+    "updatedAt": "2026-03-05T13:32:44.940Z",
+    "__v": 2
+  },
+  {
+    "_id": "69a985af78edc83db7a75d8b",
+    "customer": "69a9857678edc83db7a75d6d",
+    "reason": "CCTV",
+    "totalAmount": 8500,
+    "balanceAmount": 6500,
+    "dueDate": "2026-03-30T00:00:00.000Z",
+    "status": "open",
+    "transactions": [
+      {
+        "type": "credit",
+        "amount": 2000,
+        "dueDate": "2026-03-13T00:00:00.000Z",
+        "paidAmount": 2000,
+        "notes": "Initial credit",
+        "date": "2026-03-05T13:31:27.882Z",
+        "_id": "69a985af78edc83db7a75d8c"
+      },
+      {
+        "type": "topup",
+        "amount": 6500,
+        "dueDate": "2026-03-30T00:00:00.000Z",
+        "paidAmount": 0,
+        "notes": "Top-up",
+        "date": "2026-03-05T13:34:42.403Z",
+        "_id": "69a9867278edc83db7a75de2"
+      },
+      {
+        "type": "payment",
+        "amount": 2000,
+        "paidAmount": 0,
+        "notes": "Payment",
+        "date": "2026-03-05T13:35:35.580Z",
+        "_id": "69a986a778edc83db7a75e08"
+      }
+    ],
+    "createdBy": "69a70de5cf1e9eaf50e0ef2c",
+    "createdAt": "2026-03-05T13:31:27.883Z",
+    "updatedAt": "2026-03-05T13:35:35.581Z",
+    "__v": 2
+  }
+]

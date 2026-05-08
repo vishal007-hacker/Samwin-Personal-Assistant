@@ -8,6 +8,7 @@ const ctrl = require('../controllers/stockController');
 router.use(auth);
 
 router.get('/brands', ctrl.getBrands);
+router.get('/next-code', ctrl.getNextCode);
 router.get('/report/summary', ctrl.getReport);
 router.get('/', ctrl.getStocks);
 router.get('/:id', ctrl.getStock);

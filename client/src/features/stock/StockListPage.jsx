@@ -13,7 +13,7 @@ import {
   Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useStocks, useBrands, useCreateStock, useUpdateStock, useSellStock, useDeleteStock } from './stockApi';
+import { useStocks, useBrands, useCreateStock, useUpdateStock, useSellStock, useDeleteStock, useNextStockCode } from './stockApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
@@ -66,8 +66,11 @@ function StockFormModal({ stock, brands, onClose, category = 'mobile' }) {
   const createMutation = useCreateStock();
   const updateMutation = useUpdateStock();
   const config = CATEGORY_CONFIG[category];
+  const { data: nextCodeData } = useNextStockCode(!isEdit);
+  const nextCode = nextCodeData?.data?.nextCode;
 
   const [form, setForm] = useState({
+    uniqueCode: stock?.uniqueCode ?? '',
     brand: stock?.brand || '',
     model: stock?.model || '',
     ram: stock?.ram || '',
@@ -102,9 +105,15 @@ function StockFormModal({ stock, brands, onClose, category = 'mobile' }) {
         delete payload.color;
       }
       if (isEdit) {
+        // Only send uniqueCode if changed (avoids needless writes)
+        if (form.uniqueCode !== '' && Number(form.uniqueCode) !== stock.uniqueCode) {
+          payload.uniqueCode = Number(form.uniqueCode);
+        }
         await mutation.mutateAsync({ id: stock._id, ...payload });
         toast.success('Stock updated!');
       } else {
+        // uniqueCode is auto-assigned on create — never send from client
+        delete payload.uniqueCode;
         await mutation.mutateAsync(payload);
         toast.success('Stock added!');
       }
@@ -120,6 +129,30 @@ function StockFormModal({ stock, brands, onClose, category = 'mobile' }) {
   return (
     <Modal title={isEdit ? 'Edit Item' : 'Add New Item'} onClose={onClose} wide>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Code field */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <span className="text-xs uppercase tracking-wider text-blue-700 font-semibold shrink-0">Code</span>
+          {isEdit ? (
+            <>
+              <input
+                type="number"
+                value={form.uniqueCode}
+                onChange={set('uniqueCode')}
+                min="1"
+                className="w-32 px-3 py-1.5 text-2xl font-extrabold text-blue-700 font-mono bg-white border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <span className="text-xs text-blue-500 ml-auto">Edit only if you want to change the code (must be unique)</span>
+            </>
+          ) : (
+            <>
+              <span className="text-2xl font-extrabold text-blue-700 font-mono">
+                {nextCode != null ? nextCode : '...'}
+              </span>
+              <span className="text-xs text-blue-500 ml-auto">Auto-assigned on save</span>
+            </>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Brand *</label>

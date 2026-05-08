@@ -33,6 +33,7 @@ import AttendancePage from './features/employees/AttendancePage';
 import ServicesPage from './features/services/ServicesPage';
 import AccountsPage from './features/accounts/AccountsPage';
 import MaintenancePage from './features/maintenance/MaintenancePage';
+import DeviceServicePage from './features/device-service/DeviceServicePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -75,6 +76,7 @@ export const router = createBrowserRouter([
       { path: 'services', element: <ServicesPage /> },
       { path: 'accounts', element: <AccountsPage /> },
       { path: 'maintenance', element: <MaintenancePage /> },
+      { path: 'device-service', element: <DeviceServicePage /> },
     ],
   },
 ]);

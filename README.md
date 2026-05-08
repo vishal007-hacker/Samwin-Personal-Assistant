@@ -26,19 +26,21 @@ A complete full-stack office management application for **Samwin Infotech** — 
 
 | Module              | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
-| Dashboard           | Sales income, expenses, profit/loss, overdue & reminders   |
+| Dashboard           | Sales income, expenses, profit/loss, overdue & reminders + **in-app backup/restore** |
 | Customers           | Full CRM with Aadhaar, PAN, nominees, **referral, WhatsApp promo** |
 | Vehicle Insurance   | Policy tracking, expiry alerts, WhatsApp reminders         |
 | Our Services        | Installations, addon works, service jobs with WhatsApp reminders |
+| **Device Service**  | **Customer-brought device repairs (mobile/laptop/PC/etc.) with PIN/pattern lock storage** |
+| **Maintenance**     | **Office equipment maintenance schedule, history, cost tracking** |
 | Credits (Lending)   | FIFO payments, auto due-date shifting, bulk WhatsApp       |
-| Stock Management    | Mobile, phone & computer accessories with sell tracking    |
+| Stock Management    | Mobile, phone & computer accessories with sell tracking, code preview/edit |
 | Sales               | Daily sales, categories, today's income, reports           |
 | Expenses            | Category-based expense tracking with summaries             |
 | Billing             | GST Invoice, Quotation, Receipt with print-ready layout    |
-| **Accounts**        | **Recharge / Banking / AEPS / Cash balances with totals**  |
+| Accounts            | Recharge / Banking / AEPS / Cash balances with **date-wise snapshot reports + print** |
 | Employees           | Staff management with attendance & salary calculation      |
 | Broadcast           | Bulk WhatsApp messaging with file attachments              |
-| Reports             | All-module tabs (Insurance, Sales, Stock, Finance, People) + CSV |
+| Reports             | All-module tabs (Insurance, Sales, Stock, Finance, People, Accounts) + CSV |
 | LMS (Training)      | Office work guides with credentials for new workers        |
 | My Reminders        | Recurring popup reminders with beep sound                  |
 | Notifications       | In-app bell with badge count, auto daily checks            |
@@ -53,8 +55,11 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Upcoming premium reminders (next 15 days)
 - Vehicle insurance expiring/expired alerts
 - Recent policies overview
-- Reset all data option (admin only)
 - **Live IST clock** in header with date
+- **In-app Backup / Restore** (admin only):
+  - **Backup Data** — downloads `.json` of every collection
+  - **Download Full Backup** — downloads `.zip` with source code + DB data
+  - **Restore Backup** — upload a `.json` to replace current data (with confirmation)
 
 ### Customers
 - Create, edit, search, delete customers
@@ -87,6 +92,35 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Summary cards: total services, total asked, total received with balance due
 - CSV export
 
+### Device Service (Repair Jobs)
+- Track customer devices brought in for repair
+- **Free-text Device Type** — Mobile, Laptop, Computer, Printer, CCTV, or any custom value (with autocomplete suggestions)
+- **Lock / Unlock Info** captured per device — PIN / Password / Pattern / Fingerprint / Face / None
+  - Lock value masked in the table with eye-toggle to reveal and copy-to-clipboard button
+- Serial number / IMEI, problem description, date, customer name + phone, amount
+- **Status:** Pending → Ready → Returned (color-coded badges)
+- **WhatsApp button** sends a context-aware message based on status:
+  - Ready: "Your device is ready for pickup. Service charge: ₹X"
+  - Returned: "Thank you for choosing Samwin Infotech…"
+  - Pending: "Your device is being serviced. We will notify you once ready"
+- Stat cards: Total / Pending / Ready / Returned / Total Amount
+- Filters: search (customer/phone/serial/problem) + dynamic type filter + status filter
+- CSV export including lock info
+
+### Maintenance (Office Equipment)
+- Track office products that need recurring maintenance (printers, computers, AC, etc.)
+- Per-product fields: name, category, serial/tag, location, frequency in days, next-due date, notes, active flag
+- **Auto-calculated next maintenance date** from frequency
+- **Color-coded status badges** per product: Overdue (red) / Due Soon ≤ 7d (amber) / On Track (green)
+- **Maintenance History records** per product:
+  - Date, work done, cost, service person name + contact, next due date override
+  - Adding a record auto-shifts the product's next maintenance date
+- **Click any product name** → modal showing full details + history with quick stats (frequency, next due, total spent, service count)
+- **WhatsApp button** on history records — opens chat with service person
+- **Cost-by-category bars** + **Upcoming schedule** report panels at bottom of page
+- Stat cards: Total Products / Overdue / Due Soon / On Track / Spent This Month
+- CSV export of full history
+
 ### Accounts
 - Single page tracking balances across **4 sections** with auto-calculated totals:
   - **Recharge:** Airtel, VI, Jio, BSNL, Multi RC, Available Cash
@@ -98,6 +132,14 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - **Auto-seeded defaults** — first time you open the page (or whenever a section is empty), the standard items are populated
 - Section totals + Grand Total displayed live as you edit
 - Color-coded sections for quick scanning
+
+### Accounts — Snapshot Report (in-page)
+- **Save Snapshot** — captures current balances under a chosen date (one snapshot per date, overwrites if re-saved)
+- **Date-range filter** (defaults to current month)
+- **Card-row format** — each snapshot rendered as a row of 5 colored cards (Grand Total + Recharge + Banking + AEPS + Cash) matching the top summary
+- **Period totals** at the bottom across all snapshots in the range
+- **Print** — opens an A4-formatted print page with company header and same card layout (page-break-friendly)
+- **CSV export** with date-wise rows and column-wise totals
 
 ### Insurance Schemes & Policies
 - 20+ pre-seeded schemes (LIC, HDFC, SBI, Star Health, etc.)
@@ -230,17 +272,19 @@ Samwin/Personal Assistant/
 │       │   ├── layout/              # AppLayout, Header (live clock), Sidebar
 │       │   └── ui/                  # Modal, Spinner, Badge, ConfirmDialog
 │       ├── features/
-│       │   ├── accounts/            # AccountsPage, accountApi (recharge/banking/AEPS/cash)
+│       │   ├── accounts/            # AccountsPage, accountApi (recharge/banking/AEPS/cash + snapshot report)
 │       │   ├── auth/                # LoginPage, AuthContext
 │       │   ├── billing/             # BillingPage (Invoice/Quotation/Receipt)
 │       │   ├── broadcast/           # BroadcastPage, broadcastApi
 │       │   ├── credits/             # CreditListPage, CreditDetailPage, NewCreditPage
 │       │   ├── customers/           # CustomerListPage, CustomerFormPage, CustomerProfilePage
 │       │   ├── custom-reminders/    # CustomReminderPage, ReminderPopup
-│       │   ├── dashboard/           # DashboardPage
+│       │   ├── dashboard/           # DashboardPage (with backup/restore buttons)
+│       │   ├── device-service/      # DeviceServicePage, deviceServiceApi (repair jobs)
 │       │   ├── employees/           # EmployeeListPage, AttendancePage
 │       │   ├── expenses/            # ExpenseListPage
 │       │   ├── lms/                 # LMSPage
+│       │   ├── maintenance/         # MaintenancePage, maintenanceApi (office equipment)
 │       │   ├── notifications/       # NotificationBell
 │       │   ├── payments/            # PaymentCollectionPage, PaymentHistoryPage
 │       │   ├── policies/            # PolicyListPage, PolicyEntryPage, PolicyDetailPage
@@ -249,7 +293,7 @@ Samwin/Personal Assistant/
 │       │   ├── sales/               # SalesPage
 │       │   ├── schemes/             # SchemeListPage, SchemeFormPage
 │       │   ├── services/            # ServicesPage, serviceApi (Our Services)
-│       │   ├── stock/               # StockListPage, StockReportPage, Accessories
+│       │   ├── stock/               # StockListPage (with code preview/edit), StockReportPage, Accessories
 │       │   └── vehicle-insurance/   # VehicleInsurancePage
 │       ├── hooks/                   # useDebounce
 │       ├── lib/                     # axios, queryClient, utils
@@ -259,14 +303,14 @@ Samwin/Personal Assistant/
 ├── server/                          # Node.js/Express backend
 │   └── src/
 │       ├── config/                  # env.js, db.js
-│       ├── controllers/             # 20+ controllers (incl. service, account, backup)
+│       ├── controllers/             # 25+ controllers (incl. service, account, backup, maintenance, device-service)
 │       ├── middleware/               # auth, roleCheck, validate, errorHandler, upload
-│       ├── models/                  # 22 models (incl. Service, Account, Attendance, Employee)
-│       ├── routes/                  # 20+ route files
+│       ├── models/                  # 26 models (incl. Service, Account, AccountSnapshot, Maintenance*, DeviceService)
+│       ├── routes/                  # 24+ route files
 │       ├── seeds/                   # seed.js, seedStock.js, exportData.js, importData.js
 │       ├── services/                # reminderService, whatsappService
 │       ├── utils/                   # responseHelper, dateHelpers
-│       ├── validators/              # 13+ Joi validators
+│       ├── validators/              # 16+ Joi validators
 │       ├── app.js
 │       └── server.js
 │
@@ -356,12 +400,48 @@ Samwin/Personal Assistant/
 | DELETE | `/api/services/:id`     | Delete service                |
 
 ### Accounts (Wallet Balances)
-| Method | Endpoint                | Description                              |
-| ------ | ----------------------- | ---------------------------------------- |
-| GET    | `/api/accounts`         | List accounts grouped by section (auto-seeds defaults) |
-| POST   | `/api/accounts`         | Add new account row                      |
-| PUT    | `/api/accounts/:id`     | Update balance / name                    |
-| DELETE | `/api/accounts/:id`     | Delete account row                       |
+| Method | Endpoint                              | Description                              |
+| ------ | ------------------------------------- | ---------------------------------------- |
+| GET    | `/api/accounts`                       | List accounts grouped by section (auto-seeds defaults) |
+| POST   | `/api/accounts`                       | Add new account row                      |
+| PUT    | `/api/accounts/:id`                   | Update balance / name                    |
+| DELETE | `/api/accounts/:id`                   | Delete account row                       |
+| GET    | `/api/accounts/snapshots?from=&to=`   | List date-wise balance snapshots         |
+| POST   | `/api/accounts/snapshots`             | Save current balances under a date       |
+| DELETE | `/api/accounts/snapshots/:id`         | Delete a snapshot                        |
+
+### Maintenance
+| Method | Endpoint                                  | Description                              |
+| ------ | ----------------------------------------- | ---------------------------------------- |
+| GET    | `/api/maintenance/products`               | List products (with last-serviced stats) |
+| POST   | `/api/maintenance/products`               | Add product to maintain                  |
+| PUT    | `/api/maintenance/products/:id`           | Update product                           |
+| DELETE | `/api/maintenance/products/:id`           | Delete product (cascades records)        |
+| GET    | `/api/maintenance/records`                | List maintenance history                 |
+| POST   | `/api/maintenance/records`                | Add a service record (auto-shifts next due) |
+| PUT    | `/api/maintenance/records/:id`            | Update record                            |
+| DELETE | `/api/maintenance/records/:id`            | Delete record                            |
+
+### Device Service (Repair Jobs)
+| Method | Endpoint                              | Description                                |
+| ------ | ------------------------------------- | ------------------------------------------ |
+| GET    | `/api/device-service`                 | List service entries (filterable)          |
+| GET    | `/api/device-service/:id`             | Get single entry                           |
+| POST   | `/api/device-service`                 | Create entry                               |
+| PUT    | `/api/device-service/:id`             | Update entry / change status               |
+| DELETE | `/api/device-service/:id`             | Delete entry                               |
+
+### Backup / Restore (admin only)
+| Method | Endpoint                  | Description                                          |
+| ------ | ------------------------- | ---------------------------------------------------- |
+| GET    | `/api/backup/data`        | Download all collections as a single JSON file       |
+| GET    | `/api/backup/full`        | Download zip with source code + per-collection JSON  |
+| POST   | `/api/backup/restore`     | Upload a JSON backup to replace current data         |
+
+### Stock — extras
+| Method | Endpoint                  | Description                              |
+| ------ | ------------------------- | ---------------------------------------- |
+| GET    | `/api/stock/next-code`    | Peek at next stock code (preview, no increment) |
 
 ### LMS, Reminders, Broadcast, Notifications
 | Method | Endpoint                        | Description                  |
@@ -459,23 +539,47 @@ Open on phone: `http://YOUR_IP:5000`
 
 ## Data Backup & Restore
 
-### Export (current PC)
+There are **three ways** to back up and restore data:
+
+### 1. In-app (Dashboard) — easiest
+
+| Action | Button | What it does |
+|---|---|---|
+| Backup data | 🟦 **Backup Data** | Downloads `samwin-data-backup-<date>.json` |
+| Backup data + code | 🟪 **Download Full Backup** | Downloads `samwin-full-backup-<date>.zip` (source + data) |
+| Restore | 🟧 **Restore Backup** | Upload a `.json` backup; current data is replaced |
+
+Admin-only. Requires being logged in.
+
+### 2. CLI export/import (folder format)
 
 ```bash
+# Backup
 cd server
 node src/seeds/exportData.js
-```
+# → creates backup_<date>/ folder with one JSON per collection
 
-Creates a timestamped backup folder with all data as JSON files.
-
-### Import (new PC)
-
-```bash
+# Restore on another PC
 cd server
-node src/seeds/importData.js "../backup_YYYY-MM-DD_HH-MM-SS"
+node src/seeds/importData.js "../backup_2026-05-08_17-55-41"
 ```
 
-Restores all data including customers, stock, sales, invoices, attendance, etc.
+### 3. Restore the JSON downloaded from the Dashboard via CLI
+
+The Dashboard's "Backup Data" button downloads a **single JSON** (different shape from the folder backup). To use it from CLI, split it first:
+
+```powershell
+mkdir restore-tmp
+node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync(process.argv[1]));for(const[k,v]of Object.entries(j.collections)){fs.writeFileSync('restore-tmp/'+k+'.json',JSON.stringify(v,null,2))}" "samwin-data-backup-XXX.json"
+cd server
+node src/seeds/importData.js "../restore-tmp"
+```
+
+Or simpler: just use the **Restore Backup button on the Dashboard** to upload that same JSON.
+
+### What gets backed up
+
+All 26 collections — customers, stock, sales, invoices, attendance, services, accounts, snapshots, maintenance products + records, device-service entries, etc. Counters (stock codes, billing numbers) are also preserved so sequence numbers continue from the correct point.
 
 ---
 
