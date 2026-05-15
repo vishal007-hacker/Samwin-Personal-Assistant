@@ -1,0 +1,46 @@
+[
+  {
+    "_id": "69fdd7f8414e8f3f0ea56ef6",
+    "product": "69fdd76c414e8f3f0ea56ed4",
+    "date": "2026-05-08T00:00:00.000Z",
+    "workDone": "General Service",
+    "cost": 400,
+    "servicePersonName": "Esakki",
+    "servicePersonContact": "123",
+    "nextDueDate": "2026-09-01T00:00:00.000Z",
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T12:32:56.299Z",
+    "updatedAt": "2026-05-08T12:32:56.299Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdd833414e8f3f0ea56f14",
+    "product": "69fdd815414e8f3f0ea56f08",
+    "date": "2026-05-08T00:00:00.000Z",
+    "workDone": "General Service",
+    "cost": 100,
+    "servicePersonName": "Ganesan",
+    "servicePersonContact": "564",
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T12:33:55.191Z",
+    "updatedAt": "2026-05-08T12:33:55.191Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdd85a414e8f3f0ea56f26",
+    "product": "69fdd76c414e8f3f0ea56ed4",
+    "date": "2026-05-08T00:00:00.000Z",
+    "workDone": "Ink Pad",
+    "cost": 2000,
+    "servicePersonName": "Samwin",
+    "servicePersonContact": "65745",
+    "nextDueDate": "2026-10-08T00:00:00.000Z",
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T12:34:34.193Z",
+    "updatedAt": "2026-05-08T12:34:34.193Z",
+    "__v": 0
+  }
+]
