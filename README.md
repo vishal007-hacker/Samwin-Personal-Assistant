@@ -26,18 +26,19 @@ A complete full-stack office management application for **Samwin Infotech** — 
 
 | Module              | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
-| Dashboard           | Sales income, expenses, profit/loss, overdue & reminders + **in-app backup/restore** |
-| Customers           | Full CRM with Aadhaar, PAN, nominees, **referral, WhatsApp promo** |
+| Dashboard           | Sales income, expenses, profit/loss, overdue & reminders + in-app backup/restore + **Push to GitHub** |
+| **AI Assistant**    | **WhatsApp bot powered by local Ollama LLM — query data, add records, daily summaries** |
+| Customers           | Full CRM with Aadhaar, PAN, nominees, referral, WhatsApp promo |
 | Vehicle Insurance   | Policy tracking, expiry alerts, WhatsApp reminders         |
 | Our Services        | Installations, addon works, service jobs with WhatsApp reminders |
-| **Device Service**  | **Customer-brought device repairs (mobile/laptop/PC/etc.) with PIN/pattern lock storage** |
-| **Maintenance**     | **Office equipment maintenance schedule, history, cost tracking** |
+| Device Service      | Customer-brought device repairs with **PIN/pattern lock storage** + Delivered status |
+| Maintenance         | Office equipment maintenance schedule, history, cost tracking |
 | Credits (Lending)   | FIFO payments, auto due-date shifting, bulk WhatsApp       |
 | Stock Management    | Mobile, phone & computer accessories with sell tracking, code preview/edit |
-| Sales               | Daily sales, categories, today's income, reports           |
+| Sales               | Daily sales with **date-grouped collapsible view**, today's income, reports |
 | Expenses            | Category-based expense tracking with summaries             |
-| Billing             | GST Invoice, Quotation, Receipt with print-ready layout    |
-| Accounts            | Recharge / Banking / AEPS / Cash balances with **date-wise snapshot reports + print** |
+| Billing             | GST Invoice, Quotation, Receipt with print-ready layout + **edit** |
+| Accounts            | Recharge / Banking / AEPS / Cash balances with date-wise snapshot reports + print |
 | Employees           | Staff management with attendance & salary calculation      |
 | Broadcast           | Bulk WhatsApp messaging with file attachments              |
 | Reports             | All-module tabs (Insurance, Sales, Stock, Finance, People, Accounts) + CSV |
@@ -56,10 +57,57 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Vehicle insurance expiring/expired alerts
 - Recent policies overview
 - **Live IST clock** in header with date
-- **In-app Backup / Restore** (admin only):
+- **In-app Backup / Restore / Push** (admin only):
   - **Backup Data** — downloads `.json` of every collection
   - **Download Full Backup** — downloads `.zip` with source code + DB data
   - **Restore Backup** — upload a `.json` to replace current data (with confirmation)
+  - **Push to GitHub** — exports DB and pushes the backup folder to GitHub in one click
+
+### AI Assistant (WhatsApp Bot)
+A fully local, free, privacy-respecting WhatsApp agent that reads incoming messages from whitelisted staff phones, queries the business data via tool calls, and replies via WhatsApp.
+
+**Stack:**
+- **WhatsApp:** `whatsapp-web.js` (QR scan, runs on this PC — no paid API)
+- **AI:** [Ollama](https://ollama.com) running locally (default model: `qwen2.5:7b`). Data never leaves your PC.
+- **Access:** Whitelisted phones only (admin/staff roles)
+- **Capabilities:** Read + add records + proactive notifications
+
+**Read tools the bot can call:**
+- Sales summary for any date range (`get_sales_summary`)
+- Customer credit/loan balance by name or phone (`get_customer_credit`)
+- Stock counts/values by category (`get_stock_summary`)
+- Pending device services (`get_pending_device_services`)
+- Current wallet balances (`get_account_balances`)
+- Expiring vehicle insurance (`get_expiring_insurance`)
+- Expenses summary (`get_expenses_summary`)
+
+**Write tools (always require YES confirmation):**
+- Add a sale (`add_sale`)
+- Add an expense (`add_expense`)
+- Change device-service status (`mark_device_service_status`)
+- Update account balance (`update_account_balance`)
+
+**Proactive notifications:**
+- Daily 08:30 — yesterday's sales/expenses summary + wallet totals + credits due in next 7 days, sent to admin phones via WhatsApp.
+
+**Dashboard page (`/ai-assistant`, admin-only):**
+- Live connection status card (green/amber/red) with QR display when scan is needed
+- Allowed-numbers whitelist manager
+- Recent conversations audit log (TTL 30 days)
+- Web-based test prompt (test the AI without WhatsApp)
+- Manual "fire daily notification" button
+
+**One-time setup:**
+1. `winget install Ollama.Ollama`
+2. `ollama pull qwen2.5:7b` (~4.7 GB)
+3. Visit `/ai-assistant` → scan QR with phone (WhatsApp → Linked Devices)
+4. Add your phone to Allowed Numbers as admin
+5. Message "today sales" → bot replies
+
+**Caveats:**
+- whatsapp-web.js is unofficial; can break on WhatsApp UI updates.
+- Ollama needs ~6 GB RAM with `qwen2.5:7b`; drop to `qwen2.5:3b` or `phi-3:mini` for slower PCs.
+- Session folder (`server/session-samwin/`) contains auth tokens — gitignored.
 
 ### Customers
 - Create, edit, search, delete customers
@@ -94,16 +142,16 @@ A complete full-stack office management application for **Samwin Infotech** — 
 
 ### Device Service (Repair Jobs)
 - Track customer devices brought in for repair
-- **Free-text Device Type** — Mobile, Laptop, Computer, Printer, CCTV, or any custom value (with autocomplete suggestions)
+- **Device Type dropdown with custom-add** — managed `DeviceType` collection seeded with Mobile/Laptop/Computer/Printer/Tablet/CCTV/Router/Other. "+ Add new type..." option in the dropdown lets you add and persist custom types inline.
 - **Lock / Unlock Info** captured per device — PIN / Password / Pattern / Fingerprint / Face / None
   - Lock value masked in the table with eye-toggle to reveal and copy-to-clipboard button
 - Serial number / IMEI, problem description, date, customer name + phone, amount
-- **Status:** Pending → Ready → Returned (color-coded badges)
+- **Status:** Pending → Ready → **Delivered** → Returned (color-coded badges; Delivered is blue)
 - **WhatsApp button** sends a context-aware message based on status:
-  - Ready: "Your device is ready for pickup. Service charge: ₹X"
+  - Ready/Delivered: "Your device is ready for pickup. Service charge: ₹X"
   - Returned: "Thank you for choosing Samwin Infotech…"
   - Pending: "Your device is being serviced. We will notify you once ready"
-- Stat cards: Total / Pending / Ready / Returned / Total Amount
+- Stat cards: Total / Pending / Ready / Delivered / Returned / Total Amount
 - Filters: search (customer/phone/serial/problem) + dynamic type filter + status filter
 - CSV export including lock info
 
@@ -177,6 +225,7 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Category-based sales tracking (SIM, Recharge, Accessories, etc.)
 - Category management (create/edit/delete)
 - Summary: Today's Income, Total Sales, Total Expenses, Net Profit/Loss
+- **Date-grouped collapsible list** — each row shows the day's total + count; click to expand and see that day's sales detail
 - Sales reports with daily/category/payment breakdown
 - Payment method tracking (Cash, UPI, Bank Transfer, Card)
 
@@ -200,6 +249,7 @@ A complete full-stack office management application for **Samwin Infotech** — 
 - Authorized signatory block
 - **Services footer:** Computers, Printers, Laptops, Mobiles, CCTV Cameras Sales and Service. Billing Software, Website Design, Mobile Application and all IT Related Hardware and Software Services.
 - **Print-ready A4 layout** — opens in new window for printing
+- **Edit** existing invoices/quotations/receipts — preserves the original document number
 
 ### Employees & Attendance
 - Employee management: Name, Phone, Designation, Salary, Bank Details, Aadhaar
@@ -273,8 +323,9 @@ Samwin/Personal Assistant/
 │       │   └── ui/                  # Modal, Spinner, Badge, ConfirmDialog
 │       ├── features/
 │       │   ├── accounts/            # AccountsPage, accountApi (recharge/banking/AEPS/cash + snapshot report)
+│       │   ├── ai-assistant/        # AIAssistantPage, aiAssistantApi (WhatsApp bot dashboard)
 │       │   ├── auth/                # LoginPage, AuthContext
-│       │   ├── billing/             # BillingPage (Invoice/Quotation/Receipt)
+│       │   ├── billing/             # BillingPage (Invoice/Quotation/Receipt + edit)
 │       │   ├── broadcast/           # BroadcastPage, broadcastApi
 │       │   ├── credits/             # CreditListPage, CreditDetailPage, NewCreditPage
 │       │   ├── customers/           # CustomerListPage, CustomerFormPage, CustomerProfilePage
@@ -303,14 +354,14 @@ Samwin/Personal Assistant/
 ├── server/                          # Node.js/Express backend
 │   └── src/
 │       ├── config/                  # env.js, db.js
-│       ├── controllers/             # 25+ controllers (incl. service, account, backup, maintenance, device-service)
+│       ├── controllers/             # 26+ controllers (incl. service, account, backup, maintenance, device-service, ai)
 │       ├── middleware/               # auth, roleCheck, validate, errorHandler, upload
-│       ├── models/                  # 26 models (incl. Service, Account, AccountSnapshot, Maintenance*, DeviceService)
-│       ├── routes/                  # 24+ route files
+│       ├── models/                  # 28 models (incl. Service, Account, AccountSnapshot, Maintenance*, DeviceService, DeviceType, AllowedNumber, AIConversation)
+│       ├── routes/                  # 25+ route files
 │       ├── seeds/                   # seed.js, seedStock.js, exportData.js, importData.js
-│       ├── services/                # reminderService, whatsappService
+│       ├── services/                # reminderService, whatsappService, whatsappBotService, ollamaService, aiTools, aiAgentService, aiNotificationService
 │       ├── utils/                   # responseHelper, dateHelpers
-│       ├── validators/              # 16+ Joi validators
+│       ├── validators/              # 17+ Joi validators
 │       ├── app.js
 │       └── server.js
 │
@@ -437,6 +488,20 @@ Samwin/Personal Assistant/
 | GET    | `/api/backup/data`        | Download all collections as a single JSON file       |
 | GET    | `/api/backup/full`        | Download zip with source code + per-collection JSON  |
 | POST   | `/api/backup/restore`     | Upload a JSON backup to replace current data         |
+| POST   | `/api/backup/git-push`    | Export DB and push backup folder to GitHub           |
+
+### AI Assistant (admin only)
+| Method | Endpoint                                  | Description                                          |
+| ------ | ----------------------------------------- | ---------------------------------------------------- |
+| GET    | `/api/ai/status`                          | WhatsApp bot connection status + counters            |
+| GET    | `/api/ai/qr`                              | Current QR code as PNG data URL (when scan needed)   |
+| GET    | `/api/ai/allowed-numbers`                 | List whitelisted phones                              |
+| POST   | `/api/ai/allowed-numbers`                 | Add phone to whitelist                               |
+| PUT    | `/api/ai/allowed-numbers/:id`             | Update entry                                         |
+| DELETE | `/api/ai/allowed-numbers/:id`             | Remove from whitelist                                |
+| GET    | `/api/ai/conversations?phone=&limit=`     | Conversation audit log (TTL 30 days)                 |
+| POST   | `/api/ai/test`                            | Web-based test prompt (no WhatsApp needed)           |
+| POST   | `/api/ai/test-notification?type=`         | Manually fire a proactive notification               |
 
 ### Stock — extras
 | Method | Endpoint                  | Description                              |
@@ -484,6 +549,13 @@ MONGODB_URI=mongodb://localhost:27017/insurance-tracker
 JWT_SECRET=samwin-insurance-tracker-jwt-secret-2024
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:5173
+
+# AI Assistant — local Ollama LLM
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b
+
+# WhatsApp bot — set to 'false' to skip whatsapp-web.js init
+ENABLE_WHATSAPP_BOT=true
 ```
 
 ### 4. Seed the database
