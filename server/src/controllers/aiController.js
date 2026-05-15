@@ -162,3 +162,64 @@ exports.testPrompt = async (req, res, next) => {
     next(err);
   }
 };
+
+// ── In-app chat widget (per logged-in user) ─────────────────────────────────
+
+// Returns a per-user conversation key used as the "phone" identifier.
+// Format: "web:<userId>" so it never collides with real WhatsApp numbers.
+function webKeyFor(user) {
+  return `web:${user._id}`;
+}
+
+// POST /api/ai/chat
+exports.chat = async (req, res, next) => {
+  try {
+    const aiAgent = require('../services/aiAgentService');
+    if (!aiAgent || !aiAgent.handleMessage) {
+      return error(res, 'AI agent not initialized', 503);
+    }
+    const text = (req.body?.message || '').trim();
+    if (!text) return error(res, 'message is required', 400);
+
+    const phone = webKeyFor(req.user);
+    const reply = await aiAgent.handleMessage({
+      phone,
+      text,
+      source: 'web-test',
+      bypassWhitelist: true,
+      userId: req.user._id,
+    });
+    success(res, { reply });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/ai/chat/history
+exports.chatHistory = async (req, res, next) => {
+  try {
+    const phone = webKeyFor(req.user);
+    const docs = await AIConversation.find({
+      phone,
+      role: { $in: ['user', 'assistant'] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    // Return in chronological order
+    success(res, docs.reverse());
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/ai/chat/history
+exports.clearChatHistory = async (req, res, next) => {
+  try {
+    const phone = webKeyFor(req.user);
+    const result = await AIConversation.deleteMany({ phone });
+    success(res, { deleted: result.deletedCount });
+  } catch (err) {
+    next(err);
+  }
+};

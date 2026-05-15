@@ -32,4 +32,9 @@ router.post('/test', validate(testPrompt), ctrl.testPrompt);
 // Manually fire a proactive notification (for testing)
 router.post('/test-notification', ctrl.testNotification);
 
+// In-app chat widget (per logged-in admin)
+router.post('/chat', ctrl.chat);
+router.get('/chat/history', ctrl.chatHistory);
+router.delete('/chat/history', ctrl.clearChatHistory);
+
 module.exports = router;
