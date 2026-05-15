@@ -1,0 +1,12 @@
+[
+  {
+    "_id": "billing_receipt",
+    "__v": 0,
+    "seq": 1
+  },
+  {
+    "_id": "billing_quotation",
+    "__v": 0,
+    "seq": 1
+  }
+]
