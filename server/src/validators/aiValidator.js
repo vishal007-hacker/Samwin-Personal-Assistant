@@ -19,4 +19,12 @@ const testPrompt = Joi.object({
   phone: Joi.string().allow('').trim(),
 });
 
-module.exports = { createAllowedNumber, updateAllowedNumber, testPrompt };
+const updateSettings = Joi.object({
+  dailySummaryEnabled: Joi.boolean(),
+  dailySummaryTime: Joi.string().pattern(/^([01]?\d|2[0-3]):[0-5]\d$/).message('Time must be HH:MM (24-hour)'),
+  deviceReadyAutoNotify: Joi.boolean(),
+  deviceDeliveredAutoNotify: Joi.boolean(),
+  deviceMessageTone: Joi.string().valid('friendly', 'formal', 'short'),
+});
+
+module.exports = { createAllowedNumber, updateAllowedNumber, testPrompt, updateSettings };

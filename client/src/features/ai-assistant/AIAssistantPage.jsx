@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import {
   Bot, Smartphone, CheckCircle2, AlertTriangle, Loader2, Plus, Trash2, X,
-  Send, Bell, Users, MessageSquare, ArrowDownLeft, ArrowUpRight, Settings as SettingsIcon, Power,
+  Send, Bell, Users, MessageSquare, ArrowDownLeft, ArrowUpRight, Settings as SettingsIcon, Power, Clock, Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   useAIStatus, useAIQR,
   useAllowedNumbers, useCreateAllowedNumber, useUpdateAllowedNumber, useDeleteAllowedNumber,
   useConversations, useTestPrompt, useTestNotification,
+  useAISettings, useUpdateAISettings,
 } from './aiAssistantApi';
 
 // ── Status Badge ────────────────────────────────────────────────────────────
@@ -115,6 +116,31 @@ export default function AIAssistantPage() {
   const testMutation = useTestPrompt();
   const notifyMutation = useTestNotification();
   const [testReply, setTestReply] = useState('');
+
+  // Settings
+  const { data: settingsData } = useAISettings();
+  const settings = settingsData?.data || {};
+  const updateSettings = useUpdateAISettings();
+  const [settingsForm, setSettingsForm] = useState(null);
+  // Sync form when settings load
+  if (settingsData && settingsForm === null) {
+    setSettingsForm({
+      dailySummaryEnabled: settings.dailySummaryEnabled ?? true,
+      dailySummaryTime: settings.dailySummaryTime || '08:30',
+      deviceReadyAutoNotify: settings.deviceReadyAutoNotify ?? false,
+      deviceDeliveredAutoNotify: settings.deviceDeliveredAutoNotify ?? false,
+      deviceMessageTone: settings.deviceMessageTone || 'friendly',
+    });
+  }
+  const setSetting = (key, value) => setSettingsForm((s) => ({ ...s, [key]: value }));
+  const handleSaveSettings = async () => {
+    try {
+      await updateSettings.mutateAsync(settingsForm);
+      toast.success('Settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed');
+    }
+  };
 
   const handleDelete = async (entry) => {
     if (!confirm(`Remove ${entry.name} (${entry.phone}) from whitelist?`)) return;
@@ -297,6 +323,101 @@ export default function AIAssistantPage() {
             )}
           </form>
         </div>
+      </div>
+
+      {/* Settings */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-6">
+        <div className="px-5 py-3 border-b border-gray-200 bg-gray-50 flex items-center gap-2">
+          <SettingsIcon className="w-4 h-4 text-gray-500" />
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-600">Bot Settings</h2>
+        </div>
+        {!settingsForm ? (
+          <div className="p-8 text-center"><Loader2 className="w-5 h-5 animate-spin text-gray-400 mx-auto" /></div>
+        ) : (
+          <div className="p-5 space-y-5">
+            {/* Daily summary */}
+            <div>
+              <p className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <Bell className="w-4 h-4 text-purple-600" /> Daily Summary
+              </p>
+              <div className="flex flex-wrap items-center gap-4 pl-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm.dailySummaryEnabled}
+                    onChange={(e) => setSetting('dailySummaryEnabled', e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  Enabled
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                  Send time:
+                  <input
+                    type="time"
+                    value={settingsForm.dailySummaryTime}
+                    onChange={(e) => setSetting('dailySummaryTime', e.target.value)}
+                    disabled={!settingsForm.dailySummaryEnabled}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100"
+                  />
+                </label>
+                <p className="text-xs text-gray-400">Sent to all admin phones daily.</p>
+              </div>
+            </div>
+
+            {/* Device service auto-notify */}
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-green-600" /> Device Service — Auto WhatsApp the Customer
+              </p>
+              <div className="pl-6 space-y-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm.deviceReadyAutoNotify}
+                    onChange={(e) => setSetting('deviceReadyAutoNotify', e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  When status changes to <span className="font-mono px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Ready</span> — send "your device is ready for pickup"
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm.deviceDeliveredAutoNotify}
+                    onChange={(e) => setSetting('deviceDeliveredAutoNotify', e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  When status changes to <span className="font-mono px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Delivered</span> — send "thank you" follow-up
+                </label>
+                <div className="flex items-center gap-2 text-sm pt-1">
+                  <span>Message tone:</span>
+                  <select
+                    value={settingsForm.deviceMessageTone}
+                    onChange={(e) => setSetting('deviceMessageTone', e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="friendly">Friendly</option>
+                    <option value="formal">Formal</option>
+                    <option value="short">Short</option>
+                  </select>
+                  <span className="text-xs text-gray-400">AI uses this style when composing the customer message.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                onClick={handleSaveSettings}
+                disabled={updateSettings.isPending}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-gray-300"
+              >
+                {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Settings
+              </button>
+              <p className="text-xs text-gray-400 mt-2">Settings apply immediately. The cron will reschedule when you save.</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Conversation log */}

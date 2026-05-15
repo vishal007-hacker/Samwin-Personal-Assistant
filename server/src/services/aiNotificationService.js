@@ -1,9 +1,10 @@
 // Proactive notifications sent via WhatsApp to whitelisted admin phones.
-// Currently registers a single daily summary job at 08:30. Designed to be
-// safe-to-skip: if WhatsApp isn't ready, jobs log and continue.
+// Schedule time is read from AISettings (singleton). Designed to be safe-to-skip:
+// if WhatsApp isn't ready, jobs log and continue.
 
 const cron = require('node-cron');
 const AllowedNumber = require('../models/AllowedNumber');
+const AISettings = require('../models/AISettings');
 const whatsappBot = require('./whatsappBotService');
 const Sale = require('../models/Sale');
 const Expense = require('../models/Expense');
@@ -11,6 +12,15 @@ const Account = require('../models/Account');
 const Credit = require('../models/Credit');
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+
+// Convert "HH:MM" to cron expression "M H * * *"
+function timeToCron(timeStr) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(timeStr || '').trim());
+  if (!m) return '30 8 * * *'; // safe fallback
+  const hh = Math.max(0, Math.min(23, Number(m[1])));
+  const mm = Math.max(0, Math.min(59, Number(m[2])));
+  return `${mm} ${hh} * * *`;
+}
 
 async function getAdminPhones() {
   const docs = await AllowedNumber.find({ isActive: true, role: 'admin' });
@@ -93,14 +103,22 @@ async function buildDailySummary() {
   return lines.join('\n');
 }
 
+// Cron job handle so we can stop/restart on settings change
+let dailySummaryJob = null;
 let started = false;
 
-function startAINotifications() {
-  if (started) return;
-  started = true;
-
-  // 08:30 daily — yesterday's summary
-  cron.schedule('30 8 * * *', async () => {
+async function registerDailySummaryJob() {
+  if (dailySummaryJob) {
+    try { dailySummaryJob.stop(); } catch { /* ignore */ }
+    dailySummaryJob = null;
+  }
+  const settings = await AISettings.get();
+  if (!settings.dailySummaryEnabled) {
+    console.log('[AI-NOTIF] Daily summary disabled in settings');
+    return;
+  }
+  const cronExpr = timeToCron(settings.dailySummaryTime);
+  dailySummaryJob = cron.schedule(cronExpr, async () => {
     try {
       console.log('[AI-NOTIF] Daily summary cron firing');
       const msg = await buildDailySummary();
@@ -109,8 +127,22 @@ function startAINotifications() {
       console.error('[AI-NOTIF] Daily summary failed:', err.message);
     }
   });
+  console.log(`AI notification service: daily summary scheduled for ${settings.dailySummaryTime} (cron: ${cronExpr})`);
+}
 
-  console.log('AI notification service started (daily summary at 08:30)');
+async function startAINotifications() {
+  if (started) return;
+  started = true;
+  try {
+    await registerDailySummaryJob();
+  } catch (err) {
+    console.error('[AI-NOTIF] Failed to start:', err.message);
+  }
+}
+
+// Re-read settings and re-register the cron (called after PUT /api/ai/settings)
+async function reloadSchedule() {
+  await registerDailySummaryJob();
 }
 
 // Expose builder for manual testing via /api/ai/test-notification
@@ -123,4 +155,4 @@ async function runNotification(type) {
   throw new Error(`Unknown notification type: ${type}`);
 }
 
-module.exports = { startAINotifications, runNotification };
+module.exports = { startAINotifications, reloadSchedule, runNotification };

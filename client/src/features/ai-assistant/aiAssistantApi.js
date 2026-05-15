@@ -82,3 +82,22 @@ export function useTestNotification() {
       (await api.post('/ai/test-notification', null, { params: { type } })).data,
   });
 }
+
+// ── Settings ──
+
+const SETTINGS_KEY = 'ai-settings';
+
+export function useAISettings() {
+  return useQuery({
+    queryKey: [SETTINGS_KEY],
+    queryFn: async () => (await api.get('/ai/settings')).data,
+  });
+}
+
+export function useUpdateAISettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.put('/ai/settings', payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: [SETTINGS_KEY] }),
+  });
+}

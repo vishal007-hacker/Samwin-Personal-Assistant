@@ -1,6 +1,8 @@
 const AllowedNumber = require('../models/AllowedNumber');
 const AIConversation = require('../models/AIConversation');
+const AISettings = require('../models/AISettings');
 const whatsappBot = require('../services/whatsappBotService');
+const aiNotification = require('../services/aiNotificationService');
 const { success, error } = require('../utils/responseHelper');
 
 // ── Bot status & QR ─────────────────────────────────────────────────────────
@@ -94,6 +96,34 @@ exports.getConversations = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .limit(Math.min(Number(limit) || 100, 500));
     success(res, docs);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+// GET /api/ai/settings
+exports.getSettings = async (req, res, next) => {
+  try {
+    const settings = await AISettings.get();
+    success(res, settings);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT /api/ai/settings
+exports.updateSettings = async (req, res, next) => {
+  try {
+    const settings = await AISettings.findOneAndUpdate(
+      { _id: 'default' },
+      { $set: req.body, updatedAt: new Date() },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    // Reload cron schedule with new time/enabled flag
+    try { await aiNotification.reloadSchedule(); } catch (e) { console.error('[AI] reloadSchedule:', e.message); }
+    success(res, settings);
   } catch (err) {
     next(err);
   }

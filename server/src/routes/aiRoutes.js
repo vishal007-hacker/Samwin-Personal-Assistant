@@ -2,7 +2,7 @@ const router = require('express').Router();
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const validate = require('../middleware/validate');
-const { createAllowedNumber, updateAllowedNumber, testPrompt } = require('../validators/aiValidator');
+const { createAllowedNumber, updateAllowedNumber, testPrompt, updateSettings } = require('../validators/aiValidator');
 const ctrl = require('../controllers/aiController');
 
 // All AI routes require admin
@@ -21,6 +21,10 @@ router.delete('/allowed-numbers/:id', ctrl.deleteAllowedNumber);
 
 // Conversation audit
 router.get('/conversations', ctrl.getConversations);
+
+// Settings (daily summary time, auto-notify toggles, message tone)
+router.get('/settings', ctrl.getSettings);
+router.put('/settings', validate(updateSettings), ctrl.updateSettings);
 
 // Test prompt (web-based, no WhatsApp)
 router.post('/test', validate(testPrompt), ctrl.testPrompt);
