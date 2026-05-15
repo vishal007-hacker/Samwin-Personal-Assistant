@@ -46,3 +46,28 @@ export function useDeleteDeviceService() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }
+
+// ── Device Types ──
+
+const TYPE_KEY = 'device-types';
+
+export function useDeviceTypes() {
+  return useQuery({
+    queryKey: [TYPE_KEY],
+    queryFn: async () => {
+      const { data } = await api.get('/device-service/types');
+      return data;
+    },
+  });
+}
+
+export function useCreateDeviceType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name) => {
+      const { data } = await api.post('/device-service/types', { name });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [TYPE_KEY] }),
+  });
+}

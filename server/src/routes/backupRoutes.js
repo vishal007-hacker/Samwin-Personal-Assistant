@@ -24,5 +24,6 @@ router.use(roleCheck('admin'));
 router.get('/data', ctrl.getDataBackup);
 router.get('/full', ctrl.getFullBackup);
 router.post('/restore', restoreUpload.single('file'), ctrl.restoreBackup);
+router.post('/git-push', ctrl.gitPush);
 
 module.exports = router;

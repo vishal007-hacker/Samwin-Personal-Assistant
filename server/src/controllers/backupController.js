@@ -1,8 +1,18 @@
 const path = require('path');
 const fs = require('fs');
+const { execFile } = require('child_process');
 const archiver = require('archiver');
 const mongoose = require('mongoose');
 const { success, error } = require('../utils/responseHelper');
+
+function runGit(args, cwd) {
+  return new Promise((resolve, reject) => {
+    execFile('git', args, { cwd, timeout: 60000, windowsHide: true }, (err, stdout, stderr) => {
+      if (err) return reject(new Error(stderr || stdout || err.message));
+      resolve((stdout || '').trim());
+    });
+  });
+}
 
 // All models with their collection name in the export
 const COLLECTIONS = [
@@ -282,6 +292,55 @@ exports.restoreBackup = async (req, res, next) => {
     }
 
     success(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/backup/git-push — export DB, commit backup folder, push to GitHub
+exports.gitPush = async (req, res, next) => {
+  try {
+    const projectRoot = path.join(__dirname, '../../..');
+
+    // 1. Export DB to a fresh backup folder
+    const data = await gatherData();
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+    const backupDir = path.join(projectRoot, `backup_${stamp}`);
+    fs.mkdirSync(backupDir, { recursive: true });
+
+    for (const [name, docs] of Object.entries(data.collections)) {
+      fs.writeFileSync(path.join(backupDir, `${name}.json`), JSON.stringify(docs, null, 2));
+    }
+
+    // 2. Pull, stage, commit, push
+    const log = [];
+    try {
+      log.push('Pulling latest...');
+      await runGit(['pull', '--rebase'], projectRoot);
+
+      log.push('Staging backup folder...');
+      await runGit(['add', `backup_${stamp}`], projectRoot);
+
+      // Check if anything is staged
+      const staged = await runGit(['diff', '--cached', '--name-only'], projectRoot);
+      if (!staged) {
+        return success(res, { pushed: false, message: 'No changes to push', log });
+      }
+
+      log.push('Committing...');
+      const message = `Auto DB backup ${d.toISOString().slice(0, 16).replace('T', ' ')}`;
+      await runGit(['commit', '-m', message, '--no-verify'], projectRoot);
+
+      log.push('Pushing to GitHub...');
+      const pushOut = await runGit(['push'], projectRoot);
+      log.push(pushOut || 'Pushed');
+
+      success(res, { pushed: true, backupFolder: `backup_${stamp}`, totalDocs: Object.values(data.collections).reduce((s, c) => s + (Array.isArray(c) ? c.length : 0), 0), log });
+    } catch (gitErr) {
+      return error(res, `Git failed: ${gitErr.message}`, 500);
+    }
   } catch (err) {
     next(err);
   }

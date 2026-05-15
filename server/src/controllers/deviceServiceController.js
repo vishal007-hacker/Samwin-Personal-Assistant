@@ -1,5 +1,50 @@
 const DeviceService = require('../models/DeviceService');
+const DeviceType = require('../models/DeviceType');
 const { success, error } = require('../utils/responseHelper');
+
+const DEFAULT_TYPES = ['Mobile', 'Laptop', 'Computer', 'Printer', 'Tablet', 'CCTV', 'Router', 'Other'];
+
+async function seedDefaultTypesIfEmpty(userId) {
+  const count = await DeviceType.countDocuments();
+  if (count > 0) return;
+  await DeviceType.insertMany(DEFAULT_TYPES.map((name) => ({ name, createdBy: userId })));
+}
+
+// GET /api/device-service/types
+exports.getTypes = async (req, res, next) => {
+  try {
+    await seedDefaultTypesIfEmpty(req.user._id);
+    const docs = await DeviceType.find({}).sort({ name: 1 });
+    success(res, docs);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/device-service/types
+exports.createType = async (req, res, next) => {
+  try {
+    const name = (req.body?.name || '').trim();
+    if (!name) return error(res, 'Name is required', 400);
+    const existing = await DeviceType.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
+    if (existing) return error(res, 'Type already exists', 400);
+    const doc = await DeviceType.create({ name, createdBy: req.user._id });
+    success(res, doc, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/device-service/types/:id
+exports.deleteType = async (req, res, next) => {
+  try {
+    const doc = await DeviceType.findByIdAndDelete(req.params.id);
+    if (!doc) return error(res, 'Type not found', 404);
+    success(res, { message: 'Deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
 
 // GET /api/device-service?status=&deviceType=&from=&to=&search=
 exports.getAll = async (req, res, next) => {

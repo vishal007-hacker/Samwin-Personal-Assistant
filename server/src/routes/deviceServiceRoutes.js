@@ -6,6 +6,11 @@ const ctrl = require('../controllers/deviceServiceController');
 
 router.use(auth);
 
+// Device Types — must come before /:id routes
+router.get('/types', ctrl.getTypes);
+router.post('/types', ctrl.createType);
+router.delete('/types/:id', ctrl.deleteType);
+
 router.get('/', ctrl.getAll);
 router.get('/:id', ctrl.getOne);
 router.post('/', validate(createDeviceService), ctrl.create);

@@ -16,7 +16,7 @@ const deviceServiceSchema = new mongoose.Schema(
     customerPhone: { type: String, trim: true, index: true },
     status: {
       type: String,
-      enum: ['pending', 'ready', 'returned'],
+      enum: ['pending', 'ready', 'delivered', 'returned'],
       default: 'pending',
       index: true,
     },

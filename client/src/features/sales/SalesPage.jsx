@@ -404,6 +404,18 @@ export default function SalesPage() {
   const [formModal, setFormModal] = useState(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [expandedDate, setExpandedDate] = useState(null);
+
+  // Group sales by date (YYYY-MM-DD)
+  const salesByDate = sales.reduce((acc, s) => {
+    const d = (s.date || '').slice(0, 10);
+    if (!acc[d]) acc[d] = { date: d, count: 0, total: 0, items: [] };
+    acc[d].count += 1;
+    acc[d].total += s.amount || 0;
+    acc[d].items.push(s);
+    return acc;
+  }, {});
+  const dateGroups = Object.values(salesByDate).sort((a, b) => b.date.localeCompare(a.date));
 
   const handleDelete = async (item) => {
     if (!confirm(`Delete this sale?`)) return;
@@ -549,42 +561,71 @@ export default function SalesPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Category</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600">Qty</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600">Unit Price</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Payment</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Customer</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600 w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {sales.map((s) => (
-                    <tr key={s._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(s.date)}</td>
-                      <td className="px-4 py-3 text-gray-900 font-medium">{s.categoryName}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{s.quantity}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(s.unitPrice)}</td>
-                      <td className="px-4 py-3 text-right text-gray-900 font-semibold">{formatCurrency(s.amount)}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
-                          {PAYMENT_LABELS[s.paymentMethod] || s.paymentMethod}
+            <div className="divide-y divide-gray-100">
+              {dateGroups.map((group) => {
+                const isOpen = expandedDate === group.date;
+                return (
+                  <div key={group.date}>
+                    {/* Date Summary Row (click to expand) */}
+                    <button
+                      onClick={() => setExpandedDate(isOpen ? null : group.date)}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${isOpen ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {isOpen ? '−' : '+'}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{s.customerName || '-'}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => setFormModal(s)} className="p-1 text-gray-400 hover:text-blue-600"><Edit3 className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(s)} className="p-1 text-gray-400 hover:text-red-600 ml-1"><Trash2 className="w-4 h-4" /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <div>
+                          <p className="font-semibold text-gray-900">{formatDate(group.date)}</p>
+                          <p className="text-xs text-gray-500">{group.count} sale{group.count === 1 ? '' : 's'}</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-green-700">{formatCurrency(group.total)}</p>
+                    </button>
+
+                    {/* Expanded Details */}
+                    {isOpen && (
+                      <div className="bg-gray-50/60 px-4 py-2 border-t border-gray-100">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-xs uppercase tracking-wider text-gray-500">
+                                <th className="px-3 py-2 font-medium">Category</th>
+                                <th className="px-3 py-2 font-medium text-right">Qty</th>
+                                <th className="px-3 py-2 font-medium text-right">Unit Price</th>
+                                <th className="px-3 py-2 font-medium text-right">Amount</th>
+                                <th className="px-3 py-2 font-medium">Payment</th>
+                                <th className="px-3 py-2 font-medium">Customer</th>
+                                <th className="px-3 py-2 font-medium text-right w-20">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {group.items.map((s) => (
+                                <tr key={s._id} className="hover:bg-white">
+                                  <td className="px-3 py-2 text-gray-900 font-medium">{s.categoryName}</td>
+                                  <td className="px-3 py-2 text-right text-gray-600">{s.quantity}</td>
+                                  <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(s.unitPrice)}</td>
+                                  <td className="px-3 py-2 text-right text-gray-900 font-semibold">{formatCurrency(s.amount)}</td>
+                                  <td className="px-3 py-2">
+                                    <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+                                      {PAYMENT_LABELS[s.paymentMethod] || s.paymentMethod}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-600">{s.customerName || '-'}</td>
+                                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                                    <button onClick={(e) => { e.stopPropagation(); setFormModal(s); }} className="p-1 text-gray-400 hover:text-blue-600"><Edit3 className="w-4 h-4" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(s); }} className="p-1 text-gray-400 hover:text-red-600 ml-1"><Trash2 className="w-4 h-4" /></button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Pagination */}

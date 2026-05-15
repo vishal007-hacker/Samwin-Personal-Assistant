@@ -17,6 +17,7 @@ import {
   Database,
   Archive,
   Upload,
+  Github,
   Car,
   TrendingUp,
   TrendingDown,
@@ -292,7 +293,25 @@ export default function DashboardPage() {
   const [backingUp, setBackingUp] = useState(null); // 'data' | 'full' | null
   const [restoreFile, setRestoreFile] = useState(null);
   const [restoring, setRestoring] = useState(false);
+  const [gitPushing, setGitPushing] = useState(false);
   const queryClient = useQueryClient();
+
+  const handleGitPush = async () => {
+    if (!confirm('Export the database and push the new backup to GitHub?')) return;
+    setGitPushing(true);
+    try {
+      const { data } = await api.post('/backup/git-push');
+      if (data?.data?.pushed) {
+        toast.success(`Pushed ${data.data.backupFolder} (${data.data.totalDocs} docs) to GitHub`);
+      } else {
+        toast(data?.data?.message || 'Nothing to push', { icon: 'ℹ️' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'GitHub push failed');
+    } finally {
+      setGitPushing(false);
+    }
+  };
 
   // ── Backup handlers ──
   const downloadFromApi = async (path, fallbackName) => {
@@ -526,6 +545,15 @@ export default function DashboardPage() {
               className="hidden"
             />
           </label>
+          <button
+            onClick={handleGitPush}
+            disabled={gitPushing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-700 text-white bg-gray-900 rounded-lg font-medium hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Export DB and push backup to GitHub"
+          >
+            {gitPushing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Github className="w-4 h-4" />}
+            {gitPushing ? 'Pushing...' : 'Push to GitHub'}
+          </button>
         </div>
       </div>
 

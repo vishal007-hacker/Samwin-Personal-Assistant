@@ -7,15 +7,12 @@ import {
 import toast from 'react-hot-toast';
 import {
   useDeviceServices, useCreateDeviceService, useUpdateDeviceService, useDeleteDeviceService,
+  useDeviceTypes, useCreateDeviceType,
 } from './deviceServiceApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
 
 // ── Constants ───────────────────────────────────────────────────────────────
-
-// Common device types — used as autocomplete suggestions only.
-// Free text is allowed: users can type anything (e.g. "iMac", "Camera").
-const DEVICE_TYPE_SUGGESTIONS = ['Mobile', 'Laptop', 'Computer', 'Printer', 'Tablet', 'CCTV', 'Router', 'Other'];
 
 function iconForDeviceType(type) {
   const t = (type || '').toLowerCase();
@@ -42,6 +39,7 @@ const LOCK_LABEL_BY_VALUE = Object.fromEntries(LOCK_TYPES.map((l) => [l.value, l
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending', cls: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock },
   { value: 'ready', label: 'Ready', cls: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 },
+  { value: 'delivered', label: 'Delivered', cls: 'bg-blue-100 text-blue-700 border-blue-200', icon: CheckCircle2 },
   { value: 'returned', label: 'Returned', cls: 'bg-gray-100 text-gray-600 border-gray-200', icon: ArrowRight },
 ];
 
@@ -72,7 +70,13 @@ function ServiceFormModal({ entry, onClose }) {
   const isEdit = !!entry;
   const createMutation = useCreateDeviceService();
   const updateMutation = useUpdateDeviceService();
+  const createTypeMutation = useCreateDeviceType();
+  const { data: typesData } = useDeviceTypes();
   const mutation = isEdit ? updateMutation : createMutation;
+  const deviceTypes = typesData?.data || [];
+
+  const [showAddType, setShowAddType] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
 
   const [form, setForm] = useState({
     serialNo: entry?.serialNo || '',
@@ -126,18 +130,62 @@ function ServiceFormModal({ entry, onClose }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Device Type <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              list="deviceTypeSuggestions"
+            <select
               value={form.deviceType}
-              onChange={set('deviceType')}
+              onChange={(e) => {
+                if (e.target.value === '__add_new__') {
+                  setShowAddType(true);
+                } else {
+                  setForm((f) => ({ ...f, deviceType: e.target.value }));
+                }
+              }}
               required
-              placeholder="e.g. Mobile, Laptop, CCTV..."
-              className={inputCls}
-            />
-            <datalist id="deviceTypeSuggestions">
-              {DEVICE_TYPE_SUGGESTIONS.map((t) => <option key={t} value={t} />)}
-            </datalist>
+              className={inputCls + ' bg-white'}
+            >
+              <option value="">Select device type</option>
+              {deviceTypes.map((t) => (
+                <option key={t._id} value={t.name}>{t.name}</option>
+              ))}
+              <option value="__add_new__">+ Add new type...</option>
+            </select>
+            {showAddType && (
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  placeholder="New device type name"
+                  autoFocus
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const name = newTypeName.trim();
+                    if (!name) return toast.error('Enter a name');
+                    try {
+                      const result = await createTypeMutation.mutateAsync(name);
+                      setForm((f) => ({ ...f, deviceType: result.data?.name || name }));
+                      setNewTypeName('');
+                      setShowAddType(false);
+                      toast.success('Type added');
+                    } catch (err) {
+                      toast.error(err.response?.data?.message || 'Failed');
+                    }
+                  }}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddType(false); setNewTypeName(''); }}
+                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

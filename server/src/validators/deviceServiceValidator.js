@@ -11,7 +11,7 @@ const createDeviceService = Joi.object({
   date: Joi.date().default(() => new Date()),
   customerName: Joi.string().required().trim().min(1).max(100),
   customerPhone: Joi.string().allow('').trim(),
-  status: Joi.string().valid('pending', 'ready', 'returned').default('pending'),
+  status: Joi.string().valid('pending', 'ready', 'delivered', 'returned').default('pending'),
   amount: Joi.number().min(0).default(0),
   notes: Joi.string().allow('').trim(),
 });
@@ -25,7 +25,7 @@ const updateDeviceService = Joi.object({
   date: Joi.date(),
   customerName: Joi.string().trim().min(1).max(100),
   customerPhone: Joi.string().allow('').trim(),
-  status: Joi.string().valid('pending', 'ready', 'returned'),
+  status: Joi.string().valid('pending', 'ready', 'delivered', 'returned'),
   amount: Joi.number().min(0),
   notes: Joi.string().allow('').trim(),
 });
