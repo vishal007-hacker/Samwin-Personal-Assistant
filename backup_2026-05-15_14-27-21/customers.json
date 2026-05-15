@@ -1,0 +1,50 @@
+[
+  {
+    "_id": "69a9856778edc83db7a75d67",
+    "name": "Vishal",
+    "phone": "7904691790",
+    "address": {
+      "street": "",
+      "city": "",
+      "state": "",
+      "pincode": ""
+    },
+    "nominees": [],
+    "createdBy": "69a70de5cf1e9eaf50e0ef2c",
+    "createdAt": "2026-03-05T13:30:15.433Z",
+    "updatedAt": "2026-03-05T13:30:15.433Z",
+    "__v": 0
+  },
+  {
+    "_id": "69a9857678edc83db7a75d6d",
+    "name": "Merlin",
+    "phone": "9944514911",
+    "address": {
+      "street": "",
+      "city": "",
+      "state": "",
+      "pincode": ""
+    },
+    "nominees": [],
+    "createdBy": "69a70de5cf1e9eaf50e0ef2c",
+    "createdAt": "2026-03-05T13:30:30.404Z",
+    "updatedAt": "2026-03-05T13:30:30.404Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fc7d4940b2eab9bb9f5874",
+    "name": "karan",
+    "phone": "9876543210",
+    "address": {
+      "street": "",
+      "city": "",
+      "state": "",
+      "pincode": ""
+    },
+    "nominees": [],
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-07T11:53:45.549Z",
+    "updatedAt": "2026-05-07T11:53:45.549Z",
+    "__v": 0
+  }
+]
