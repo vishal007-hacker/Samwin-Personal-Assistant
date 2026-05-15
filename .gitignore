@@ -10,3 +10,8 @@ dist/
 Test.md
 server/uploads/*
 !server/uploads/.gitkeep
+
+# WhatsApp Web session data — contains auth tokens, NEVER commit
+server/.wwebjs_auth/
+server/.wwebjs_cache/
+server/session-*/

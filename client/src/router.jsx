@@ -34,6 +34,7 @@ import ServicesPage from './features/services/ServicesPage';
 import AccountsPage from './features/accounts/AccountsPage';
 import MaintenancePage from './features/maintenance/MaintenancePage';
 import DeviceServicePage from './features/device-service/DeviceServicePage';
+import AIAssistantPage from './features/ai-assistant/AIAssistantPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
       { path: 'accounts', element: <AccountsPage /> },
       { path: 'maintenance', element: <MaintenancePage /> },
       { path: 'device-service', element: <DeviceServicePage /> },
+      { path: 'ai-assistant', element: <AIAssistantPage /> },
     ],
   },
 ]);

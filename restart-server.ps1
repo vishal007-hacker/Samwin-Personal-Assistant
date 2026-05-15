@@ -42,7 +42,7 @@ if ($listOut -match $processName) {
 
 # 3. Verify
 Step 'Verifying website...'
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 4
 try {
     $resp = Invoke-WebRequest -Uri 'http://localhost:5000/api/health' -UseBasicParsing -TimeoutSec 5
     if ($resp.StatusCode -eq 200) { Ok 'Backend responding on port 5000' }

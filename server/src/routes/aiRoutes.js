@@ -1,0 +1,31 @@
+const router = require('express').Router();
+const auth = require('../middleware/auth');
+const roleCheck = require('../middleware/roleCheck');
+const validate = require('../middleware/validate');
+const { createAllowedNumber, updateAllowedNumber, testPrompt } = require('../validators/aiValidator');
+const ctrl = require('../controllers/aiController');
+
+// All AI routes require admin
+router.use(auth);
+router.use(roleCheck('admin'));
+
+// Bot status & QR
+router.get('/status', ctrl.getStatus);
+router.get('/qr', ctrl.getQR);
+
+// Whitelist management
+router.get('/allowed-numbers', ctrl.getAllowedNumbers);
+router.post('/allowed-numbers', validate(createAllowedNumber), ctrl.createAllowedNumber);
+router.put('/allowed-numbers/:id', validate(updateAllowedNumber), ctrl.updateAllowedNumber);
+router.delete('/allowed-numbers/:id', ctrl.deleteAllowedNumber);
+
+// Conversation audit
+router.get('/conversations', ctrl.getConversations);
+
+// Test prompt (web-based, no WhatsApp)
+router.post('/test', validate(testPrompt), ctrl.testPrompt);
+
+// Manually fire a proactive notification (for testing)
+router.post('/test-notification', ctrl.testNotification);
+
+module.exports = router;
