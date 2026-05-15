@@ -26,7 +26,8 @@ Write-Host "Repo: $repoPath" -ForegroundColor DarkGray
 
 # 1. Sync with remote first (before creating new backup folder)
 Step 'Pulling latest changes from GitHub...'
-& git pull --rebase | Out-Null
+# --autostash auto-stashes any local changes and restores them after rebase
+& git pull --rebase --autostash | Out-Null
 if ($LASTEXITCODE -ne 0) { Fail 'git pull failed. Resolve conflicts manually then retry.' }
 Ok 'In sync with origin/main'
 

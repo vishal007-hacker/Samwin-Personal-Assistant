@@ -317,8 +317,9 @@ exports.gitPush = async (req, res, next) => {
     // 2. Pull, stage, commit, push
     const log = [];
     try {
-      log.push('Pulling latest...');
-      await runGit(['pull', '--rebase'], projectRoot);
+      log.push('Pulling latest (auto-stashing any local changes)...');
+      // --autostash stashes any uncommitted/unstaged work, pulls, then restores it
+      await runGit(['pull', '--rebase', '--autostash'], projectRoot);
 
       log.push('Staging backup folder...');
       await runGit(['add', `backup_${stamp}`], projectRoot);
