@@ -48,3 +48,17 @@ export function useSendViaBot() {
       (await api.post('/broadcast/send', { recipients, message })).data,
   });
 }
+
+export function usePreviewSummary() {
+  return useMutation({
+    mutationFn: async (audience) =>
+      (await api.post('/broadcast/summary/preview', { audience })).data,
+  });
+}
+
+export function useSendSummary() {
+  return useMutation({
+    mutationFn: async (audience) =>
+      (await api.post('/broadcast/summary/send', { audience })).data,
+  });
+}

@@ -18,12 +18,18 @@ import {
   CheckCircle2,
   AlertTriangle,
   Zap,
+  Sparkles,
+  Eye,
+  Briefcase,
+  HardHat,
+  UserRound,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCustomers } from '../customers/customerApi';
 import {
   useUploadBroadcastFiles, useDeleteBroadcastFile,
   useBroadcastBotStatus, useBroadcastBotQR, useSendViaBot,
+  usePreviewSummary, useSendSummary,
 } from './broadcastApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { generateWhatsAppLink } from '../../lib/utils';
@@ -82,6 +88,50 @@ export default function BroadcastPage() {
   const qrUrl = qrData?.data?.qrDataUrl;
   const sendViaBotMutation = useSendViaBot();
   const [botProgress, setBotProgress] = useState(null); // { sent, failed, total, errors }
+
+  // Smart Summary state
+  const [summaryAudience, setSummaryAudience] = useState('owners');
+  const [summaryPreview, setSummaryPreview] = useState(null); // { recipients, total, skipped }
+  const previewSummary = usePreviewSummary();
+  const sendSummary = useSendSummary();
+  const [summaryResult, setSummaryResult] = useState(null);
+
+  const handlePreviewSummary = async () => {
+    try {
+      const result = await previewSummary.mutateAsync(summaryAudience);
+      setSummaryPreview(result.data);
+      setSummaryResult(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Preview failed');
+    }
+  };
+
+  const handleSendSummary = async () => {
+    if (!botStatus.ready) {
+      toast.error('WhatsApp bot is not connected. Scan QR first.');
+      return;
+    }
+    if (!summaryPreview || summaryPreview.total === 0) {
+      toast.error('Click Preview first to see who will receive the message.');
+      return;
+    }
+    const eta = Math.ceil(summaryPreview.total * 3);
+    if (!confirm(`Send personalized summary to ${summaryPreview.total} ${summaryAudience}? This will take ~${eta}s (3s delay between messages).`)) return;
+
+    setSummaryResult({ running: true });
+    try {
+      const result = await sendSummary.mutateAsync(summaryAudience);
+      setSummaryResult({ ...result.data, running: false });
+      if (result.data?.failed > 0) {
+        toast(`Sent ${result.data.sent}/${result.data.total}, ${result.data.failed} failed`, { icon: '⚠️' });
+      } else {
+        toast.success(`Sent to ${result.data.sent} ${summaryAudience}`);
+      }
+    } catch (err) {
+      setSummaryResult(null);
+      toast.error(err.response?.data?.message || 'Send failed');
+    }
+  };
 
   // ── Selection helpers ──
 
@@ -321,6 +371,113 @@ export default function BroadcastPage() {
           )}
         </div>
       )}
+
+      {/* ── Smart Summary Panel ──────────────────────────────────────────── */}
+      <div className="mb-6 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-purple-200 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-purple-600" />
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-purple-900">Smart Summary</h2>
+          <span className="text-xs text-purple-600">Auto-generated WhatsApp summaries from your live business data</span>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Audience picker */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { value: 'owners', label: 'Owner / Admin', icon: Briefcase, desc: 'Daily sales, expenses, balances, alerts' },
+              { value: 'workers', label: 'Workers / Staff', icon: HardHat, desc: 'Attendance, pending tasks, maintenance due' },
+              { value: 'customers', label: 'Customers', icon: UserRound, desc: 'Credits, service status, expiring insurance' },
+            ].map((opt) => {
+              const Icon = opt.icon;
+              const active = summaryAudience === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => { setSummaryAudience(opt.value); setSummaryPreview(null); setSummaryResult(null); }}
+                  className={`text-left p-3 rounded-lg border-2 transition-all ${active ? 'border-purple-500 bg-white shadow-sm' : 'border-transparent bg-white/50 hover:bg-white hover:border-purple-300'}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon className={`w-4 h-4 ${active ? 'text-purple-600' : 'text-gray-500'}`} />
+                    <span className={`text-sm font-semibold ${active ? 'text-purple-900' : 'text-gray-700'}`}>{opt.label}</span>
+                  </div>
+                  <p className={`text-xs ${active ? 'text-purple-700' : 'text-gray-500'}`}>{opt.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handlePreviewSummary}
+              disabled={previewSummary.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50 transition-colors"
+            >
+              {previewSummary.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+              Preview
+            </button>
+            <button
+              onClick={handleSendSummary}
+              disabled={!botStatus.ready || sendSummary.isPending || !summaryPreview || summaryPreview.total === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 transition-colors"
+              title={!botStatus.ready ? 'Bot is not connected' : !summaryPreview ? 'Click Preview first' : ''}
+            >
+              {sendSummary.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Send Summary{summaryPreview?.total ? ` (${summaryPreview.total})` : ''}
+            </button>
+            {summaryPreview && (
+              <span className="text-xs text-purple-700 ml-2">
+                {summaryPreview.total} recipient{summaryPreview.total === 1 ? '' : 's'}
+                {summaryPreview.skipped?.length > 0 && `, ${summaryPreview.skipped.length} skipped`}
+              </span>
+            )}
+          </div>
+
+          {/* Preview list */}
+          {summaryPreview && summaryPreview.recipients?.length > 0 && (
+            <div className="bg-white rounded-lg border border-purple-200 max-h-96 overflow-y-auto divide-y divide-gray-100">
+              {summaryPreview.recipients.slice(0, 3).map((r, i) => (
+                <div key={i} className="p-3">
+                  <p className="text-xs font-semibold text-purple-700 mb-2">
+                    → {r.name} <span className="text-gray-400 font-normal font-mono">{r.phone}</span>
+                  </p>
+                  <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans bg-gray-50 p-2 rounded">{r.message}</pre>
+                </div>
+              ))}
+              {summaryPreview.recipients.length > 3 && (
+                <p className="p-3 text-xs text-gray-500 text-center">
+                  ... and {summaryPreview.recipients.length - 3} more
+                </p>
+              )}
+            </div>
+          )}
+
+          {summaryPreview && summaryPreview.total === 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              ⚠️ No recipients match this audience. {summaryPreview.skipped?.[0]?.reason && `Reason: ${summaryPreview.skipped[0].reason}`}
+            </div>
+          )}
+
+          {/* Send result */}
+          {summaryResult && !summaryResult.running && (
+            <div className="bg-white rounded-lg border border-green-200 p-3 text-sm">
+              <p className="font-semibold text-green-800 mb-1">✓ Summary sent</p>
+              <div className="flex gap-4 text-gray-700">
+                <span>Sent: <b>{summaryResult.sent}</b></span>
+                <span>Failed: <b>{summaryResult.failed}</b></span>
+                <span>Total: <b>{summaryResult.total}</b></span>
+              </div>
+              {summaryResult.errors?.length > 0 && (
+                <details className="mt-2 text-xs">
+                  <summary className="text-red-700 cursor-pointer">{summaryResult.errors.length} error(s)</summary>
+                  <ul className="mt-1 ml-4 list-disc text-red-600 max-h-32 overflow-y-auto">
+                    {summaryResult.errors.slice(0, 10).map((e, i) => <li key={i}>{e.name || e.phone}: {e.error}</li>)}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Message Composer */}

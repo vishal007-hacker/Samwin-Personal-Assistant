@@ -7,6 +7,11 @@ const fs = require('fs');
 const auth = require('../middleware/auth');
 const { success, error } = require('../utils/responseHelper');
 const whatsappBot = require('../services/whatsappBotService');
+const summaryService = require('../services/summaryService');
+
+// 3s between WhatsApp messages — safer rate limit
+const SEND_DELAY_MS = 3000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Ensure broadcast upload dir exists
 const uploadDir = path.join(__dirname, '../../uploads/broadcast');
@@ -120,13 +125,76 @@ router.post('/send', async (req, res) => {
         results.failed += 1;
         results.errors.push({ phone, name: r.name, error: err.message });
       }
-      // Rate-limit between messages (1.5s) to avoid WhatsApp throttling
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Rate-limit between messages (3s) to avoid WhatsApp throttling
+      await sleep(SEND_DELAY_MS);
     }
 
     success(res, results);
   } catch (err) {
     error(res, err.message || 'Send failed', 500);
+  }
+});
+
+// ── Smart Summary Broadcasts ────────────────────────────────────────────────
+
+// POST /api/broadcast/summary/preview
+// Body: { audience: 'owners' | 'workers' | 'customers' }
+// Builds the per-recipient summaries WITHOUT sending. Returns the recipient
+// list + the message that would be sent, so the UI can show a preview.
+router.post('/summary/preview', async (req, res) => {
+  try {
+    const { audience } = req.body || {};
+    if (!['owners', 'workers', 'customers'].includes(audience)) {
+      return error(res, 'audience must be owners | workers | customers', 400);
+    }
+    const { recipients, skipped } = await summaryService.buildSummary(audience);
+    success(res, { audience, total: recipients.length, recipients, skipped });
+  } catch (err) {
+    error(res, err.message || 'Preview failed', 500);
+  }
+});
+
+// POST /api/broadcast/summary/send
+// Body: { audience: 'owners' | 'workers' | 'customers' }
+// Builds the recipient list, then sends each personalised message via the bot
+// with a 3s delay between sends.
+router.post('/summary/send', async (req, res) => {
+  try {
+    const { audience } = req.body || {};
+    if (!['owners', 'workers', 'customers'].includes(audience)) {
+      return error(res, 'audience must be owners | workers | customers', 400);
+    }
+    const status = whatsappBot.getStatus();
+    if (!status.ready) {
+      return error(res, `WhatsApp bot is not ready (status: ${status.status}). Scan QR first.`, 503);
+    }
+
+    const { recipients, skipped } = await summaryService.buildSummary(audience);
+    if (recipients.length === 0) {
+      return success(res, { audience, sent: 0, failed: 0, total: 0, skipped, errors: [], note: 'Nothing to send' });
+    }
+
+    const results = { audience, sent: 0, failed: 0, total: recipients.length, errors: [], skipped };
+    for (const r of recipients) {
+      const phone = String(r.phone || '').replace(/\D/g, '');
+      if (!phone) {
+        results.failed += 1;
+        results.errors.push({ phone: r.phone, name: r.name, error: 'invalid phone' });
+        continue;
+      }
+      try {
+        await whatsappBot.send(phone, r.message);
+        results.sent += 1;
+      } catch (err) {
+        results.failed += 1;
+        results.errors.push({ phone, name: r.name, error: err.message });
+      }
+      await sleep(SEND_DELAY_MS);
+    }
+
+    success(res, results);
+  } catch (err) {
+    error(res, err.message || 'Summary send failed', 500);
   }
 });
 
