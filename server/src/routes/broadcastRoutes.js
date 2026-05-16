@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const auth = require('../middleware/auth');
 const { success, error } = require('../utils/responseHelper');
+const whatsappBot = require('../services/whatsappBotService');
 
 // Ensure broadcast upload dir exists
 const uploadDir = path.join(__dirname, '../../uploads/broadcast');
@@ -70,6 +71,63 @@ router.delete('/upload/:filename', (req, res) => {
     fs.unlinkSync(filePath);
   }
   success(res, { message: 'File deleted' });
+});
+
+// ── WhatsApp bot integration ────────────────────────────────────────────────
+
+// GET /api/broadcast/bot-status
+router.get('/bot-status', (req, res) => {
+  success(res, whatsappBot.getStatus());
+});
+
+// GET /api/broadcast/bot-qr — QR code (data URL) when scan is needed
+router.get('/bot-qr', (req, res) => {
+  success(res, { qrDataUrl: whatsappBot.getQR() });
+});
+
+// POST /api/broadcast/send
+// Body: { recipients: [{ phone, name }], message: string }
+// Sends the (personalized) text to each recipient via the WhatsApp bot with a
+// short delay between sends to avoid rate-limiting.
+router.post('/send', async (req, res) => {
+  try {
+    const { recipients, message } = req.body || {};
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return error(res, 'No recipients', 400);
+    }
+    if (!message || !String(message).trim()) {
+      return error(res, 'Message is required', 400);
+    }
+
+    const status = whatsappBot.getStatus();
+    if (!status.ready) {
+      return error(res, `WhatsApp bot is not ready (status: ${status.status}). Scan QR on the Broadcast page first.`, 503);
+    }
+
+    const results = { sent: 0, failed: 0, total: recipients.length, errors: [] };
+    for (const r of recipients) {
+      const phone = String(r?.phone || '').replace(/\D/g, '');
+      if (!phone) {
+        results.failed += 1;
+        results.errors.push({ phone: r?.phone, name: r?.name, error: 'invalid phone' });
+        continue;
+      }
+      const personalized = String(message).replace(/\{name\}/g, r.name || 'Customer');
+      try {
+        await whatsappBot.send(phone, personalized);
+        results.sent += 1;
+      } catch (err) {
+        results.failed += 1;
+        results.errors.push({ phone, name: r.name, error: err.message });
+      }
+      // Rate-limit between messages (1.5s) to avoid WhatsApp throttling
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+
+    success(res, results);
+  } catch (err) {
+    error(res, err.message || 'Send failed', 500);
+  }
 });
 
 module.exports = router;

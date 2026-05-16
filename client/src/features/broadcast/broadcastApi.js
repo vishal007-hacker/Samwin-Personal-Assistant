@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../../lib/axios';
 
 export const uploadBroadcastFiles = async (files) => {
@@ -21,4 +21,30 @@ export function useUploadBroadcastFiles() {
 
 export function useDeleteBroadcastFile() {
   return useMutation({ mutationFn: deleteBroadcastFile });
+}
+
+// ── WhatsApp Bot integration ──
+
+export function useBroadcastBotStatus() {
+  return useQuery({
+    queryKey: ['broadcast-bot-status'],
+    queryFn: async () => (await api.get('/broadcast/bot-status')).data,
+    refetchInterval: 5000,
+  });
+}
+
+export function useBroadcastBotQR(enabled = true) {
+  return useQuery({
+    queryKey: ['broadcast-bot-qr'],
+    queryFn: async () => (await api.get('/broadcast/bot-qr')).data,
+    enabled,
+    refetchInterval: enabled ? 3000 : false,
+  });
+}
+
+export function useSendViaBot() {
+  return useMutation({
+    mutationFn: async ({ recipients, message }) =>
+      (await api.post('/broadcast/send', { recipients, message })).data,
+  });
 }

@@ -14,10 +14,17 @@ import {
   Square,
   Users,
   Paperclip,
+  Bot,
+  CheckCircle2,
+  AlertTriangle,
+  Zap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCustomers } from '../customers/customerApi';
-import { useUploadBroadcastFiles, useDeleteBroadcastFile } from './broadcastApi';
+import {
+  useUploadBroadcastFiles, useDeleteBroadcastFile,
+  useBroadcastBotStatus, useBroadcastBotQR, useSendViaBot,
+} from './broadcastApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { generateWhatsAppLink } from '../../lib/utils';
 
@@ -66,6 +73,15 @@ export default function BroadcastPage() {
 
   // Base URL for file links
   const baseUrl = window.location.origin;
+
+  // WhatsApp Bot integration
+  const { data: botStatusData } = useBroadcastBotStatus();
+  const botStatus = botStatusData?.data || { status: 'disconnected', ready: false };
+  const showBotQR = botStatus.status === 'qr';
+  const { data: qrData } = useBroadcastBotQR(showBotQR);
+  const qrUrl = qrData?.data?.qrDataUrl;
+  const sendViaBotMutation = useSendViaBot();
+  const [botProgress, setBotProgress] = useState(null); // { sent, failed, total, errors }
 
   // ── Selection helpers ──
 
@@ -167,24 +183,144 @@ export default function BroadcastPage() {
     toast.success(`Opening WhatsApp for ${selectedCustomers.length} contact(s)...`);
   };
 
+  // ── Send via bot (direct, no browser tabs) ──
+
+  const handleSendViaBot = async () => {
+    if (selectedCustomers.length === 0) {
+      toast.error('Select at least one customer');
+      return;
+    }
+    if (!message.trim() && uploadedFiles.length === 0) {
+      toast.error('Please enter a message or upload files');
+      return;
+    }
+    if (!botStatus.ready) {
+      toast.error('WhatsApp bot is not connected. Scan the QR first.');
+      return;
+    }
+    if (!confirm(`Send to ${selectedCustomers.length} contact(s) directly via the WhatsApp bot? This may take ~${Math.ceil(selectedCustomers.length * 1.5)}s.`)) return;
+
+    setBotProgress({ sent: 0, failed: 0, total: selectedCustomers.length, errors: [], running: true });
+    try {
+      const recipients = selectedCustomers.map((c) => ({ phone: c.phone, name: c.name }));
+      // The {name} replacement happens server-side per recipient, but we still
+      // append the file links to the message text here (same as wa.me flow).
+      const baseMessage = buildMessage('{name}');
+      const result = await sendViaBotMutation.mutateAsync({ recipients, message: baseMessage });
+      const data = result.data || {};
+      setBotProgress({ ...data, running: false });
+      if (data.failed === 0) {
+        toast.success(`Sent to ${data.sent}/${data.total} contact(s) via bot`);
+      } else {
+        toast(`Sent ${data.sent}/${data.total}, ${data.failed} failed`, { icon: '⚠️' });
+      }
+    } catch (err) {
+      setBotProgress(null);
+      toast.error(err.response?.data?.message || 'Bot send failed');
+    }
+  };
+
+  // ── Bot status display config ──
+  const botCfg = botStatus.ready
+    ? { label: 'Bot Connected', cls: 'bg-green-100 text-green-700 border-green-300', dot: 'bg-green-500', icon: CheckCircle2 }
+    : botStatus.status === 'qr'
+    ? { label: 'Scan QR to Connect', cls: 'bg-amber-100 text-amber-700 border-amber-300', dot: 'bg-amber-500', icon: AlertTriangle }
+    : botStatus.status === 'initializing'
+    ? { label: 'Starting Bot...', cls: 'bg-gray-100 text-gray-700 border-gray-300', dot: 'bg-gray-500', icon: Loader2 }
+    : { label: 'Bot Offline', cls: 'bg-gray-100 text-gray-500 border-gray-300', dot: 'bg-gray-400', icon: Bot };
+  const BotIcon = botCfg.icon;
+
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Broadcast</h1>
           <p className="text-sm text-gray-500 mt-1">Send WhatsApp messages to customers</p>
+          {/* Bot status badge */}
+          <div className="mt-2">
+            <span className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full border ${botCfg.cls}`}>
+              <span className={`w-2 h-2 rounded-full ${botCfg.dot} ${botStatus.status === 'initializing' ? 'animate-pulse' : ''}`}></span>
+              <BotIcon className={`w-3.5 h-3.5 ${botStatus.status === 'initializing' ? 'animate-spin' : ''}`} />
+              {botCfg.label}
+            </span>
+            {botStatus.ready && (
+              <span className="ml-2 text-xs text-gray-400">
+                Direct sending available · {botStatus.outboundCount || 0} sent
+              </span>
+            )}
+          </div>
         </div>
         {selectedCustomers.length > 0 && (
-          <button
-            onClick={handleSendAll}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Send className="w-4 h-4" />
-            Send to All ({selectedCustomers.length})
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {botStatus.ready && (
+              <button
+                onClick={handleSendViaBot}
+                disabled={sendViaBotMutation.isPending}
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 transition-colors"
+                title="Send directly via WhatsApp bot — no browser tabs"
+              >
+                {sendViaBotMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                {sendViaBotMutation.isPending ? 'Sending...' : `Send via Bot (${selectedCustomers.length})`}
+              </button>
+            )}
+            <button
+              onClick={handleSendAll}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              title="Open WhatsApp Web for each contact (one tab per customer)"
+            >
+              <Send className="w-4 h-4" />
+              Open WhatsApp ({selectedCustomers.length})
+            </button>
+          </div>
         )}
       </div>
+
+      {/* QR code panel (only when scan is needed) */}
+      {showBotQR && qrUrl && (
+        <div className="mb-6 flex flex-col sm:flex-row items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <img src={qrUrl} alt="WhatsApp QR" className="w-40 h-40 bg-white p-2 rounded-lg shrink-0" />
+          <div>
+            <p className="font-semibold text-amber-900 mb-1">Scan to connect the WhatsApp bot</p>
+            <p className="text-sm text-amber-800">
+              On your phone: WhatsApp → Settings → <b>Linked Devices</b> → <b>Link a Device</b> → scan this code.
+            </p>
+            <p className="text-xs text-amber-700 mt-2">
+              Once connected, you can send broadcasts directly without opening browser tabs.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Bot send progress */}
+      {botProgress && (
+        <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <Bot className="w-4 h-4 text-purple-600" />
+            <p className="text-sm font-semibold text-purple-900">
+              {botProgress.running ? 'Sending via bot...' : 'Bot send complete'}
+            </p>
+            <button onClick={() => setBotProgress(null)} className="ml-auto p-1 text-purple-500 hover:text-purple-700">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-green-700"><b>{botProgress.sent}</b> sent</span>
+            <span className="text-red-700"><b>{botProgress.failed}</b> failed</span>
+            <span className="text-gray-500">of <b>{botProgress.total}</b> total</span>
+          </div>
+          {botProgress.errors?.length > 0 && (
+            <details className="mt-2 text-xs">
+              <summary className="text-red-700 cursor-pointer hover:underline">Show {botProgress.errors.length} error(s)</summary>
+              <ul className="mt-1 ml-4 list-disc text-red-600 max-h-32 overflow-y-auto">
+                {botProgress.errors.slice(0, 20).map((e, i) => (
+                  <li key={i}>{e.name || e.phone}: {e.error}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Message Composer */}
