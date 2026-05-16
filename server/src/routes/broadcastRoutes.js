@@ -90,6 +90,20 @@ router.get('/bot-qr', (req, res) => {
   success(res, { qrDataUrl: whatsappBot.getQR() });
 });
 
+// POST /api/broadcast/bot-restart  body: { clearSession?: boolean }
+// Restarts the WhatsApp bot. If clearSession is true (e.g., after a LOGOUT),
+// also wipes the session folder so a fresh QR is generated.
+router.post('/bot-restart', async (req, res) => {
+  try {
+    const clearSession = !!(req.body && req.body.clearSession);
+    // Respond immediately — restart can take 10-30s, don't block the request
+    success(res, { message: clearSession ? 'Restart with fresh session triggered' : 'Restart triggered' });
+    whatsappBot.restart({ clearSession }).catch((e) => console.error('[WA] restart failed:', e.message));
+  } catch (err) {
+    error(res, err.message || 'Restart failed', 500);
+  }
+});
+
 // POST /api/broadcast/send
 // Body: { recipients: [{ phone, name }], message: string }
 // Sends the (personalized) text to each recipient via the WhatsApp bot with a

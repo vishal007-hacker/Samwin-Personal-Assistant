@@ -23,12 +23,14 @@ import {
   Briefcase,
   HardHat,
   UserRound,
+  RotateCcw,
+  QrCode,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCustomers } from '../customers/customerApi';
 import {
   useUploadBroadcastFiles, useDeleteBroadcastFile,
-  useBroadcastBotStatus, useBroadcastBotQR, useSendViaBot,
+  useBroadcastBotStatus, useBroadcastBotQR, useSendViaBot, useRestartBot,
   usePreviewSummary, useSendSummary,
 } from './broadcastApi';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -87,7 +89,18 @@ export default function BroadcastPage() {
   const { data: qrData } = useBroadcastBotQR(showBotQR);
   const qrUrl = qrData?.data?.qrDataUrl;
   const sendViaBotMutation = useSendViaBot();
+  const restartBotMutation = useRestartBot();
   const [botProgress, setBotProgress] = useState(null); // { sent, failed, total, errors }
+
+  const handleConnectBot = async ({ freshQR = false } = {}) => {
+    if (freshQR && !confirm('Wipe existing WhatsApp session and generate a new QR? You\'ll need to scan it again.')) return;
+    try {
+      await restartBotMutation.mutateAsync({ clearSession: freshQR });
+      toast.success(freshQR ? 'Generating new QR... (takes ~15s)' : 'Reconnecting bot... (takes ~10s)');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed');
+    }
+  };
 
   // Smart Summary state
   const [summaryAudience, setSummaryAudience] = useState('owners');
@@ -308,16 +321,43 @@ export default function BroadcastPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Broadcast</h1>
           <p className="text-sm text-gray-500 mt-1">Send WhatsApp messages to customers</p>
-          {/* Bot status badge */}
-          <div className="mt-2">
+          {/* Bot status badge + Connect button */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full border ${botCfg.cls}`}>
               <span className={`w-2 h-2 rounded-full ${botCfg.dot} ${botStatus.status === 'initializing' ? 'animate-pulse' : ''}`}></span>
               <BotIcon className={`w-3.5 h-3.5 ${botStatus.status === 'initializing' ? 'animate-spin' : ''}`} />
               {botCfg.label}
             </span>
             {botStatus.ready && (
-              <span className="ml-2 text-xs text-gray-400">
+              <span className="text-xs text-gray-400">
                 Direct sending available · {botStatus.outboundCount || 0} sent
+              </span>
+            )}
+            {!botStatus.ready && botStatus.status !== 'initializing' && (
+              <>
+                <button
+                  onClick={() => handleConnectBot({ freshQR: false })}
+                  disabled={restartBotMutation.isPending}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-gray-300 transition-colors"
+                  title="Reconnect using saved session (if any)"
+                >
+                  {restartBotMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                  Connect Bot
+                </button>
+                <button
+                  onClick={() => handleConnectBot({ freshQR: true })}
+                  disabled={restartBotMutation.isPending}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-700 rounded-full hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  title="Wipe session and generate a fresh QR to scan from a different phone"
+                >
+                  <QrCode className="w-3 h-3" />
+                  New QR
+                </button>
+              </>
+            )}
+            {botStatus.lastError && !botStatus.ready && (
+              <span className="text-xs text-red-600 max-w-xs truncate" title={botStatus.lastError}>
+                {botStatus.lastError}
               </span>
             )}
           </div>

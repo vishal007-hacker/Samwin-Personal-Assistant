@@ -49,6 +49,13 @@ export function useSendViaBot() {
   });
 }
 
+export function useRestartBot() {
+  return useMutation({
+    mutationFn: async ({ clearSession = false } = {}) =>
+      (await api.post('/broadcast/bot-restart', { clearSession })).data,
+  });
+}
+
 export function usePreviewSummary() {
   return useMutation({
     mutationFn: async ({ audience, ownerPhones }) =>

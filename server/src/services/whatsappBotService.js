@@ -116,15 +116,25 @@ async function init() {
     console.log('[WA] Client ready');
   });
 
-  state.client.on('disconnected', (reason) => {
+  state.client.on('disconnected', async (reason) => {
     state.status = 'disconnected';
     state.lastError = `disconnected: ${reason}`;
     console.warn('[WA] Disconnected:', reason);
-    // Auto-reinitialize after short delay
-    setTimeout(() => {
-      state.client = null;
-      init().catch((e) => console.error('[WA] reinit failed:', e.message));
-    }, 5000);
+    // Destroy the current client cleanly, then wait for filesystem locks to
+    // release before re-initing. If LOGOUT, the session is invalid — clear it
+    // so we get a fresh QR.
+    try { await state.client?.destroy(); } catch { /* ignore */ }
+    state.client = null;
+    await new Promise((r) => setTimeout(r, 3000));
+    if (reason === 'LOGOUT') {
+      const fs = require('fs');
+      const sessionDir = path.join(__dirname, '../../session-samwin');
+      if (fs.existsSync(sessionDir)) {
+        try { fs.rmSync(sessionDir, { recursive: true, force: true }); }
+        catch (e) { console.warn('[WA] post-LOGOUT cleanup failed:', e.message); }
+      }
+    }
+    init().catch((e) => console.error('[WA] reinit failed:', e.message));
   });
 
   state.client.on('message', async (msg) => {
@@ -160,6 +170,37 @@ async function destroy() {
   state.status = 'disconnected';
 }
 
+// Force-restart: destroy current client, wait for OS to release file locks,
+// then re-init. Used when the bot got logged out from the phone and the
+// auto-reconnect couldn't free the Chromium session folder.
+async function restart({ clearSession = false } = {}) {
+  console.log('[WA] Manual restart triggered');
+  state.status = 'initializing';
+  state.qrDataUrl = null;
+  state.qrRaw = null;
+
+  await destroy();
+
+  // Wait for Chromium/file locks to fully release
+  await new Promise((r) => setTimeout(r, 2000));
+
+  if (clearSession) {
+    const fs = require('fs');
+    const sessionDir = path.join(__dirname, '../../session-samwin');
+    if (fs.existsSync(sessionDir)) {
+      try {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+        console.log('[WA] Cleared session folder');
+      } catch (err) {
+        console.warn('[WA] Could not clear session folder:', err.message);
+      }
+    }
+  }
+
+  await init();
+  return getStatus();
+}
+
 // Send a text message. `phone` is digits-only (no +), 10-digit local numbers
 // will have '91' prefixed automatically.
 async function send(phone, text) {
@@ -182,6 +223,7 @@ function phoneFromChatId(chatId) {
 module.exports = {
   init,
   destroy,
+  restart,
   getStatus,
   getQR,
   onMessage,
