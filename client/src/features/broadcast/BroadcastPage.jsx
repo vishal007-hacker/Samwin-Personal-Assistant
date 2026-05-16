@@ -92,7 +92,7 @@ export default function BroadcastPage() {
   // Smart Summary state
   const [summaryAudience, setSummaryAudience] = useState('owners');
   const [summaryPreview, setSummaryPreview] = useState(null); // { recipients, total, skipped }
-  const [ownerPhones, setOwnerPhones] = useState(() => localStorage.getItem('owner-phones') || '');
+  const [ownerPhones, setOwnerPhones] = useState(() => localStorage.getItem('owner-phones') || '9944514911');
   const previewSummary = usePreviewSummary();
   const sendSummary = useSendSummary();
   const [summaryResult, setSummaryResult] = useState(null);

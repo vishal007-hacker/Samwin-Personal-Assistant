@@ -41,7 +41,7 @@ async function buildOwnerSummary({ ownerPhones } = {}) {
     owners = ownerPhones
       .map((p) => ({
         phone: String(p || '').replace(/\D/g, ''),
-        name: 'Owner',
+        name: 'Merlin S',
       }))
       .filter((o) => o.phone.length >= 7);
     if (owners.length === 0) {
