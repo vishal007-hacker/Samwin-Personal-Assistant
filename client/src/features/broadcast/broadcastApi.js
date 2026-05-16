@@ -51,14 +51,14 @@ export function useSendViaBot() {
 
 export function usePreviewSummary() {
   return useMutation({
-    mutationFn: async (audience) =>
-      (await api.post('/broadcast/summary/preview', { audience })).data,
+    mutationFn: async ({ audience, ownerPhones }) =>
+      (await api.post('/broadcast/summary/preview', { audience, ownerPhones })).data,
   });
 }
 
 export function useSendSummary() {
   return useMutation({
-    mutationFn: async (audience) =>
-      (await api.post('/broadcast/summary/send', { audience })).data,
+    mutationFn: async ({ audience, ownerPhones }) =>
+      (await api.post('/broadcast/summary/send', { audience, ownerPhones })).data,
   });
 }

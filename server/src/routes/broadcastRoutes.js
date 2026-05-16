@@ -143,11 +143,11 @@ router.post('/send', async (req, res) => {
 // list + the message that would be sent, so the UI can show a preview.
 router.post('/summary/preview', async (req, res) => {
   try {
-    const { audience } = req.body || {};
+    const { audience, ownerPhones } = req.body || {};
     if (!['owners', 'workers', 'customers'].includes(audience)) {
       return error(res, 'audience must be owners | workers | customers', 400);
     }
-    const { recipients, skipped } = await summaryService.buildSummary(audience);
+    const { recipients, skipped } = await summaryService.buildSummary(audience, { ownerPhones });
     success(res, { audience, total: recipients.length, recipients, skipped });
   } catch (err) {
     error(res, err.message || 'Preview failed', 500);
@@ -160,7 +160,7 @@ router.post('/summary/preview', async (req, res) => {
 // with a 3s delay between sends.
 router.post('/summary/send', async (req, res) => {
   try {
-    const { audience } = req.body || {};
+    const { audience, ownerPhones } = req.body || {};
     if (!['owners', 'workers', 'customers'].includes(audience)) {
       return error(res, 'audience must be owners | workers | customers', 400);
     }
@@ -169,7 +169,7 @@ router.post('/summary/send', async (req, res) => {
       return error(res, `WhatsApp bot is not ready (status: ${status.status}). Scan QR first.`, 503);
     }
 
-    const { recipients, skipped } = await summaryService.buildSummary(audience);
+    const { recipients, skipped } = await summaryService.buildSummary(audience, { ownerPhones });
     if (recipients.length === 0) {
       return success(res, { audience, sent: 0, failed: 0, total: 0, skipped, errors: [], note: 'Nothing to send' });
     }

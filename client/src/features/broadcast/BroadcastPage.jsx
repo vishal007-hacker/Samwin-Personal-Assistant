@@ -92,13 +92,29 @@ export default function BroadcastPage() {
   // Smart Summary state
   const [summaryAudience, setSummaryAudience] = useState('owners');
   const [summaryPreview, setSummaryPreview] = useState(null); // { recipients, total, skipped }
+  const [ownerPhones, setOwnerPhones] = useState(() => localStorage.getItem('owner-phones') || '');
   const previewSummary = usePreviewSummary();
   const sendSummary = useSendSummary();
   const [summaryResult, setSummaryResult] = useState(null);
 
+  // Parse comma/space-separated phone numbers into a clean array
+  const parsedOwnerPhones = () =>
+    ownerPhones
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 7);
+
   const handlePreviewSummary = async () => {
     try {
-      const result = await previewSummary.mutateAsync(summaryAudience);
+      const opts = { audience: summaryAudience };
+      if (summaryAudience === 'owners') {
+        const phones = parsedOwnerPhones();
+        if (phones.length > 0) {
+          opts.ownerPhones = phones;
+          localStorage.setItem('owner-phones', ownerPhones);
+        }
+      }
+      const result = await previewSummary.mutateAsync(opts);
       setSummaryPreview(result.data);
       setSummaryResult(null);
     } catch (err) {
@@ -120,7 +136,12 @@ export default function BroadcastPage() {
 
     setSummaryResult({ running: true });
     try {
-      const result = await sendSummary.mutateAsync(summaryAudience);
+      const opts = { audience: summaryAudience };
+      if (summaryAudience === 'owners') {
+        const phones = parsedOwnerPhones();
+        if (phones.length > 0) opts.ownerPhones = phones;
+      }
+      const result = await sendSummary.mutateAsync(opts);
       setSummaryResult({ ...result.data, running: false });
       if (result.data?.failed > 0) {
         toast(`Sent ${result.data.sent}/${result.data.total}, ${result.data.failed} failed`, { icon: '⚠️' });
@@ -404,6 +425,25 @@ export default function BroadcastPage() {
               );
             })}
           </div>
+
+          {/* Owner phones input (only for owners audience) */}
+          {summaryAudience === 'owners' && (
+            <div className="bg-white border border-purple-200 rounded-lg p-3">
+              <label className="block text-xs font-semibold text-purple-900 mb-1">
+                Send to phone(s):
+              </label>
+              <input
+                type="text"
+                value={ownerPhones}
+                onChange={(e) => { setOwnerPhones(e.target.value); setSummaryPreview(null); }}
+                placeholder="e.g. 9566181510, 9944514911"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Comma-separated. Saved in this browser. Leave empty to send to admin user(s) in the database.
+              </p>
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">

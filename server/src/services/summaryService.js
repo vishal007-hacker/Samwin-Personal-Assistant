@@ -30,13 +30,28 @@ function todayRange() {
 
 // ── OWNER summary ───────────────────────────────────────────────────────────
 
-async function buildOwnerSummary() {
+async function buildOwnerSummary({ ownerPhones } = {}) {
   const recipients = [];
   const skipped = [];
 
-  const owners = await User.find({ role: 'admin', isActive: true, phone: { $ne: '', $exists: true } });
-  if (owners.length === 0) {
-    return { recipients, skipped: [{ reason: 'No admin user with a phone number found' }] };
+  // If caller provided explicit phones, use them. Otherwise fall back to
+  // admin users with a phone number in the User table.
+  let owners;
+  if (Array.isArray(ownerPhones) && ownerPhones.length > 0) {
+    owners = ownerPhones
+      .map((p) => ({
+        phone: String(p || '').replace(/\D/g, ''),
+        name: 'Owner',
+      }))
+      .filter((o) => o.phone.length >= 7);
+    if (owners.length === 0) {
+      return { recipients, skipped: [{ reason: 'No valid phone numbers provided' }] };
+    }
+  } else {
+    owners = await User.find({ role: 'admin', isActive: true, phone: { $ne: '', $exists: true } });
+    if (owners.length === 0) {
+      return { recipients, skipped: [{ reason: 'No admin user with a phone number found. Provide phones manually.' }] };
+    }
   }
 
   const { from, to } = todayRange();
@@ -287,9 +302,9 @@ async function buildCustomerSummary() {
 
 // ── Dispatcher ──────────────────────────────────────────────────────────────
 
-async function buildSummary(audience) {
+async function buildSummary(audience, opts = {}) {
   switch (audience) {
-    case 'owners':    return buildOwnerSummary();
+    case 'owners':    return buildOwnerSummary(opts);
     case 'workers':   return buildWorkerSummary();
     case 'customers': return buildCustomerSummary();
     default:          throw new Error(`Unknown audience: ${audience}`);
