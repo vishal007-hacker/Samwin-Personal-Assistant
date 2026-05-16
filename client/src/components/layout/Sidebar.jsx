@@ -20,7 +20,6 @@ import {
   Wrench,
   Banknote,
   Hammer,
-  Bot,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -42,7 +41,6 @@ const navItems = [
   { to: '/lms', label: 'LMS', icon: GraduationCap },
   { to: '/employees', label: 'Employees', icon: UserCheck },
   { to: '/my-reminders', label: 'My Reminders', icon: BellRing },
-  { to: '/ai-assistant', label: 'AI Assistant', icon: Bot },
 ];
 
 function NavItem({ item, onClose }) {

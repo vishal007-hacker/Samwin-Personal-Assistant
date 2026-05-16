@@ -12,7 +12,5 @@ module.exports = {
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
   vapidSubject: process.env.VAPID_SUBJECT,
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
-  ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-  ollamaModel: process.env.OLLAMA_MODEL || 'qwen2.5:7b',
   enableWhatsappBot: process.env.ENABLE_WHATSAPP_BOT !== 'false',
 };

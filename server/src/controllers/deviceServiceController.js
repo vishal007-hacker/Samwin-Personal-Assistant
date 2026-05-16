@@ -97,30 +97,12 @@ exports.create = async (req, res, next) => {
 // PUT /api/device-service/:id
 exports.update = async (req, res, next) => {
   try {
-    // Capture old status BEFORE updating so we can detect a transition
-    const prev = await DeviceService.findById(req.params.id).lean();
-    if (!prev) return error(res, 'Service entry not found', 404);
-
     const doc = await DeviceService.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
     if (!doc) return error(res, 'Service entry not found', 404);
-
-    // Respond first; fire-and-forget the AI-composed WhatsApp so the API stays fast.
     success(res, doc);
-
-    if (prev.status !== doc.status) {
-      // Run after response. Errors are logged inside the helper; never throw here.
-      setImmediate(async () => {
-        try {
-          const aiDeviceNotify = require('../services/aiDeviceNotify');
-          await aiDeviceNotify.notifyDeviceStatus(doc.toObject(), prev.status, doc.status);
-        } catch (e) {
-          console.error('[deviceService] notify error:', e.message);
-        }
-      });
-    }
   } catch (err) {
     next(err);
   }
