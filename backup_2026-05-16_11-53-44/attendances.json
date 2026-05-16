@@ -1,0 +1,40 @@
+[
+  {
+    "_id": "69cfbf97df5e0d178c415ace",
+    "employee": "69cfbef1df5e0d178c415aaa",
+    "date": "2026-04-02T18:30:00.000Z",
+    "morningIn": "09:00",
+    "afternoonOut": "23:59",
+    "afterLunchIn": "16:30",
+    "nightOut": "22:00",
+    "workDetails": "Good Friday",
+    "location": "",
+    "expenses": 0,
+    "expenseNotes": "",
+    "status": "present",
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-04-03T13:24:39.182Z",
+    "updatedAt": "2026-04-03T13:24:39.182Z",
+    "__v": 0
+  },
+  {
+    "_id": "69cfc08cdf5e0d178c415b03",
+    "employee": "69cfbef1df5e0d178c415aaa",
+    "date": "2026-04-01T18:30:00.000Z",
+    "morningIn": "",
+    "afternoonOut": "",
+    "afterLunchIn": "16:00",
+    "nightOut": "22:00",
+    "workDetails": "",
+    "location": "",
+    "expenses": 0,
+    "expenseNotes": "",
+    "status": "present",
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-04-03T13:28:44.380Z",
+    "updatedAt": "2026-04-03T13:30:00.022Z",
+    "__v": 0
+  }
+]
