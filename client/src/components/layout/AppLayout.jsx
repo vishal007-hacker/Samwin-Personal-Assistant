@@ -4,7 +4,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAuth } from '../../features/auth/AuthContext';
 import ReminderPopup from '../../features/custom-reminders/ReminderPopup';
-// import ChatWidget from '../ai-chat/ChatWidget'; // hidden — uncomment to re-enable
+import ChatWidget from '../ai-chat/ChatWidget';
 
 export default function AppLayout() {
   const { user, loading } = useAuth();
@@ -41,8 +41,8 @@ export default function AppLayout() {
       {/* Global reminder popup — checks every 30s for due reminders */}
       <ReminderPopup />
 
-      {/* Floating AI chat widget — bottom-right, admin only. Hidden for now. */}
-      {/* <ChatWidget /> */}
+      {/* Floating AI chat widget — bottom-right, admin only */}
+      <ChatWidget />
     </div>
   );
 }

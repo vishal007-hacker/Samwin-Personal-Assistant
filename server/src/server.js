@@ -3,6 +3,7 @@ const connectDB = require('./config/db');
 const { port, enableWhatsappBot } = require('./config/env');
 const { startReminderService } = require('./services/reminderService');
 const { startAINotifications } = require('./services/aiNotificationService');
+const { preloadModel } = require('./services/ollamaService');
 const whatsappBot = require('./services/whatsappBotService');
 
 const start = async () => {
@@ -12,6 +13,10 @@ const start = async () => {
   app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
   });
+
+  // Preload Ollama model into RAM so the first chat reply is fast.
+  // Non-blocking — server keeps working if Ollama is offline.
+  preloadModel().catch(() => { /* logged inside */ });
 
   // Initialize WhatsApp bot AFTER server starts so HTTP keeps working even if
   // WhatsApp fails. The init is non-blocking and logs failure rather than

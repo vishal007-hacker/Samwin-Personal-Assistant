@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bot, Send, X, Loader2, Trash2, MessageCircle, Minus } from 'lucide-react';
+import { Bot, Send, X, Loader2, Trash2, MessageCircle, Minus, ArrowLeft } from 'lucide-react';
 import api from '../../lib/axios';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -117,6 +117,13 @@ export default function ChatWidget() {
     <div className="fixed bottom-5 right-5 z-40 w-[min(380px,calc(100vw-2.5rem))] h-[min(560px,calc(100vh-2.5rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-br from-purple-600 to-indigo-600 text-white">
+        <button
+          onClick={() => setOpen(false)}
+          className="p-1.5 rounded-lg hover:bg-white/20 transition-colors shrink-0"
+          title="Back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
         <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">
           <Bot className="w-5 h-5" />
         </div>
@@ -135,9 +142,9 @@ export default function ChatWidget() {
         <button
           onClick={() => setOpen(false)}
           className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
-          title="Minimize"
+          title="Close"
         >
-          <Minus className="w-4 h-4" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 

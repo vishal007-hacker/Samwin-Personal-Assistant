@@ -42,7 +42,7 @@ const navItems = [
   { to: '/lms', label: 'LMS', icon: GraduationCap },
   { to: '/employees', label: 'Employees', icon: UserCheck },
   { to: '/my-reminders', label: 'My Reminders', icon: BellRing },
-  // { to: '/ai-assistant', label: 'AI Assistant', icon: Bot }, // hidden — uncomment to re-enable
+  { to: '/ai-assistant', label: 'AI Assistant', icon: Bot },
 ];
 
 function NavItem({ item, onClose }) {

@@ -146,7 +146,17 @@ async function handleMessage({ phone, text, source = 'whatsapp', bypassWhitelist
     try {
       response = await ollama.chat({ messages, tools: getOllamaTools() });
     } catch (err) {
-      const reply = `AI error: ${err.message}`;
+      // Friendly error wording instead of raw stack
+      const msg = String(err.message || '');
+      let friendly = 'The AI is having trouble right now.';
+      if (msg.includes('timeout') || msg.includes('aborted')) {
+        friendly = 'The AI took too long to respond. Your PC may be low on free RAM — try closing some browser tabs or set ENABLE_WHATSAPP_BOT=false to free memory, then try again.';
+      } else if (msg.includes('Ollama 404')) {
+        friendly = 'The configured Ollama model is not installed. Run: ollama pull <model-name>';
+      } else if (msg.includes('ECONNREFUSED') || msg.includes('fetch failed')) {
+        friendly = 'Cannot reach Ollama. Make sure it is running (http://localhost:11434).';
+      }
+      const reply = friendly;
       await persistAssistant(phone, reply);
       return reply;
     }
@@ -154,7 +164,8 @@ async function handleMessage({ phone, text, source = 'whatsapp', bypassWhitelist
     const { content, toolCalls } = response;
 
     if (!toolCalls || toolCalls.length === 0) {
-      finalContent = content || '(no response)';
+      finalContent = content?.trim()
+        || "I couldn't generate a response. The AI model may be too small for this question — try a simpler phrasing, or upgrade to qwen2.5:3b or qwen2.5:7b for richer answers.";
       break;
     }
 
