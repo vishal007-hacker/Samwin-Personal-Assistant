@@ -1,0 +1,14 @@
+[
+  {
+    "_id": "69ab0582aac61c8defe62715",
+    "name": "Admin",
+    "email": "admin",
+    "password": "$2a$12$bnRXukJZ471EyGeL49Uhzuae8F1YfubBY9wlKJZOITI9iCN8BiS6u",
+    "role": "admin",
+    "phone": "9999999999",
+    "isActive": true,
+    "createdAt": "2026-03-06T16:49:06.064Z",
+    "updatedAt": "2026-03-06T16:49:06.064Z",
+    "__v": 0
+  }
+]
