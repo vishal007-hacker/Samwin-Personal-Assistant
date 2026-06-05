@@ -105,8 +105,11 @@ function SpinningWheel({ participants, isSpinning, finalRotation }) {
   const size = 360;
   const radius = size / 2;
   const n = participants.length;
+  const sliceAngle = n > 0 ? 360 / n : 360;
 
-  // Build the conic-gradient string for sector colors
+  // Build the conic-gradient string for sector colors.
+  // `from 0deg` means slice 0 starts at the top (12 o'clock) and slices go
+  // clockwise. This matches what the pointer expects.
   const slicePct = n > 0 ? 100 / n : 100;
   const segments = participants.map((_, i) => {
     const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
@@ -115,8 +118,8 @@ function SpinningWheel({ participants, isSpinning, finalRotation }) {
     return `${color} ${start}% ${end}%`;
   }).join(', ');
   const wheelBg = n > 0
-    ? `conic-gradient(from -90deg, ${segments})`
-    : 'conic-gradient(from -90deg, #e5e7eb 0% 100%)';
+    ? `conic-gradient(from 0deg, ${segments})`
+    : 'conic-gradient(from 0deg, #e5e7eb 0% 100%)';
 
   return (
     <div className="relative inline-block">
@@ -142,15 +145,21 @@ function SpinningWheel({ participants, isSpinning, finalRotation }) {
           border: '8px solid #1f2937',
         }}
       >
-        {/* Labels on each slice */}
+        {/* Labels on each slice.
+            With gradient `from 0deg`, slice i center is at compass angle
+            (i * sliceAngle + sliceAngle/2), where 0deg = top (12 o'clock).
+            CSS `transform: rotate(0deg)` makes the label extend to the East
+            (3 o'clock) — so to point in a given compass direction we subtract
+            90deg from the compass angle. */}
         {n > 0 && participants.map((p, i) => {
-          const angle = (360 / n) * i + (360 / n) / 2; // center of slice
+          const centerCompass = sliceAngle * i + sliceAngle / 2;
+          const labelRotate = centerCompass - 90;
           return (
             <div
               key={p._id}
               className="absolute top-1/2 left-1/2 origin-left text-white font-bold text-xs select-none"
               style={{
-                transform: `rotate(${angle}deg) translateX(${radius * 0.35}px)`,
+                transform: `rotate(${labelRotate}deg) translateX(${radius * 0.35}px)`,
                 whiteSpace: 'nowrap',
                 textShadow: '0 1px 2px rgba(0,0,0,0.6)',
               }}
