@@ -20,6 +20,7 @@ import {
   Wrench,
   Banknote,
   Hammer,
+  Gift,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -41,6 +42,7 @@ const navItems = [
   { to: '/lms', label: 'LMS', icon: GraduationCap },
   { to: '/employees', label: 'Employees', icon: UserCheck },
   { to: '/my-reminders', label: 'My Reminders', icon: BellRing },
+  { to: '/lucky-draw', label: 'Lucky Draw', icon: Gift },
 ];
 
 function NavItem({ item, onClose }) {
