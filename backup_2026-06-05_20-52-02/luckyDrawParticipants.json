@@ -1,0 +1,58 @@
+[
+  {
+    "_id": "6a228704f200da9baf12086c",
+    "name": "Merlin",
+    "phone": "9944514911",
+    "purchaseDetails": "Iphone 17 -85000",
+    "notes": "",
+    "isWinner": true,
+    "drawnAt": "2026-06-05T08:24:18.402Z",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-06-05T08:21:24.165Z",
+    "updatedAt": "2026-06-05T08:24:18.403Z",
+    "serialNo": 1,
+    "__v": 0
+  },
+  {
+    "_id": "6a22871bf200da9baf120872",
+    "name": "Samwin",
+    "phone": "9566181510",
+    "purchaseDetails": "Samsung s23",
+    "notes": "",
+    "isWinner": true,
+    "drawnAt": "2026-06-05T15:21:47.645Z",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-06-05T08:21:47.539Z",
+    "updatedAt": "2026-06-05T15:21:47.648Z",
+    "serialNo": 2,
+    "__v": 0
+  },
+  {
+    "_id": "6a228732f200da9baf12087e",
+    "name": "Vishal",
+    "phone": "9450982658",
+    "purchaseDetails": "Iphone 13",
+    "notes": "",
+    "isWinner": true,
+    "drawnAt": "2026-06-05T08:24:26.164Z",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-06-05T08:22:10.548Z",
+    "updatedAt": "2026-06-05T08:24:26.165Z",
+    "serialNo": 3,
+    "__v": 0
+  },
+  {
+    "_id": "6a228740f200da9baf120887",
+    "name": "Kiruba",
+    "phone": "98t47325",
+    "purchaseDetails": "Iphone 11",
+    "notes": "",
+    "isWinner": true,
+    "drawnAt": "2026-06-05T15:22:02.018Z",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-06-05T08:22:24.497Z",
+    "updatedAt": "2026-06-05T15:22:02.019Z",
+    "serialNo": 4,
+    "__v": 0
+  }
+]

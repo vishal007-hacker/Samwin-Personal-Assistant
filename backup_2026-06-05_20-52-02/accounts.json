@@ -1,0 +1,156 @@
+[
+  {
+    "_id": "69fdc8033e8383ee948a7f17",
+    "section": "recharge",
+    "name": "Airtel",
+    "balance": 1735,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.536Z",
+    "updatedAt": "2026-05-08T11:26:33.975Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f18",
+    "section": "recharge",
+    "name": "VI",
+    "balance": 511,
+    "order": 2,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-08T11:26:34.987Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f19",
+    "section": "recharge",
+    "name": "Jio",
+    "balance": 2558,
+    "order": 3,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-08T11:26:36.174Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1a",
+    "section": "recharge",
+    "name": "BSNL",
+    "balance": 0,
+    "order": 4,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-08T11:24:51.538Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1b",
+    "section": "recharge",
+    "name": "Multi RC",
+    "balance": 780,
+    "order": 5,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-08T11:26:37.545Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1c",
+    "section": "recharge",
+    "name": "Available Cash",
+    "balance": 1450,
+    "order": 6,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-08T11:25:58.341Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1f",
+    "section": "banking",
+    "name": "Union",
+    "balance": 12545,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.562Z",
+    "updatedAt": "2026-05-08T11:26:32.225Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f20",
+    "section": "banking",
+    "name": "KVB",
+    "balance": 1272,
+    "order": 2,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.562Z",
+    "updatedAt": "2026-05-08T11:26:27.753Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f21",
+    "section": "banking",
+    "name": "Available Cash",
+    "balance": 6185,
+    "order": 3,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.562Z",
+    "updatedAt": "2026-05-08T11:27:52.456Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f24",
+    "section": "aeps",
+    "name": "Airtel",
+    "balance": 0,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-08T11:24:51.569Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f25",
+    "section": "aeps",
+    "name": "Relipay",
+    "balance": 0,
+    "order": 2,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-08T11:24:51.569Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f26",
+    "section": "aeps",
+    "name": "Digipay",
+    "balance": 0,
+    "order": 3,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-08T11:24:51.569Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f27",
+    "section": "aeps",
+    "name": "Available Cash",
+    "balance": 0,
+    "order": 4,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-08T11:24:51.569Z"
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f2a",
+    "section": "cash",
+    "name": "Total Cash on Hand",
+    "balance": 180,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "__v": 0,
+    "createdAt": "2026-05-08T11:24:51.576Z",
+    "updatedAt": "2026-05-08T11:28:52.463Z"
+  }
+]
