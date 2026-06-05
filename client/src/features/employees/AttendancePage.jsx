@@ -9,6 +9,67 @@ import { useEmployee, useSalaryReport } from './employeeApi';
 import { useAttendance, useCreateAttendance, useUpdateAttendance, useDeleteAttendance } from './attendanceApi';
 import { formatCurrency, formatDate } from '../../lib/utils';
 
+// ── Time math helpers ───────────────────────────────────────────────────────
+
+// Parse "HH:MM" -> minutes since midnight. Returns null if invalid/empty.
+function timeToMin(t) {
+  if (!t) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  if (h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+  return h * 60 + mm;
+}
+
+function diffMin(start, end) {
+  const s = timeToMin(start);
+  const e = timeToMin(end);
+  if (s == null || e == null || e < s) return 0;
+  return e - s;
+}
+
+function minToHM(mins) {
+  if (!mins || mins <= 0) return '0h';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+// Compute working / late / early-exit / effective hours for one attendance row.
+function computeAttendanceMetrics(att, employee) {
+  // Morning block + afternoon block
+  const morningMin = diffMin(att.morningIn, att.afternoonOut);
+  const afternoonMin = diffMin(att.afterLunchIn, att.nightOut);
+  const workedMin = morningMin + afternoonMin;
+
+  // Permission in minutes (user enters hours)
+  const permissionMin = Math.round((Number(att.permissionHours) || 0) * 60);
+
+  // Effective worked = worked - permission (permission means away from work)
+  const effectiveMin = Math.max(0, workedMin - permissionMin);
+
+  // Late arrival = morningIn - expectedIn (positive only)
+  const expectedIn = timeToMin(employee?.defaultInTime || '09:00');
+  const actualIn = timeToMin(att.morningIn);
+  let lateMin = 0;
+  if (actualIn != null && expectedIn != null && actualIn > expectedIn) {
+    lateMin = actualIn - expectedIn;
+  }
+
+  // Early exit = expectedOut - nightOut (positive only)
+  const expectedOut = timeToMin(employee?.defaultOutTime || '18:00');
+  const actualOut = timeToMin(att.nightOut);
+  let earlyExitMin = 0;
+  if (actualOut != null && expectedOut != null && actualOut < expectedOut) {
+    earlyExitMin = expectedOut - actualOut;
+  }
+
+  return { workedMin, effectiveMin, permissionMin, lateMin, earlyExitMin };
+}
+
 // ── Status config ───────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
@@ -51,6 +112,8 @@ function AttendanceFormModal({ employeeId, entry, onClose }) {
     location: entry?.location || '',
     expenses: entry?.expenses || '',
     expenseNotes: entry?.expenseNotes || '',
+    permissionHours: entry?.permissionHours ?? '',
+    permissionReason: entry?.permissionReason || '',
     status: entry?.status || 'present',
     notes: entry?.notes || '',
   });
@@ -62,7 +125,11 @@ function AttendanceFormModal({ employeeId, entry, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...form, expenses: Number(form.expenses) || 0 };
+      const payload = {
+        ...form,
+        expenses: Number(form.expenses) || 0,
+        permissionHours: Number(form.permissionHours) || 0,
+      };
       if (isEdit) {
         await mutation.mutateAsync({ id: entry._id, ...payload });
         toast.success('Attendance updated!');
@@ -126,6 +193,22 @@ function AttendanceFormModal({ employeeId, entry, onClose }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
           <input type="text" value={form.location} onChange={set('location')} placeholder="e.g. Office, Client site, Field" className={inputCls} />
+        </div>
+
+        {/* Permission Hours */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <p className="text-xs font-semibold text-amber-900 uppercase tracking-wider mb-2">Permission / Authorized Absence</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Permission Hours</label>
+              <input type="number" step="0.25" min="0" value={form.permissionHours} onChange={set('permissionHours')} placeholder="0" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Reason</label>
+              <input type="text" value={form.permissionReason} onChange={set('permissionReason')} placeholder="e.g. Doctor visit, family event" className={inputCls} />
+            </div>
+          </div>
+          <p className="text-xs text-amber-700 mt-1.5">These hours are deducted from working hours when calculating attendance.</p>
         </div>
 
         {/* Expenses */}
@@ -250,6 +333,42 @@ export default function AttendancePage() {
         </div>
       )}
 
+      {/* Monthly Hours Summary */}
+      {attendance.length > 0 && (() => {
+        let workedTotal = 0, lateTotal = 0, permissionTotal = 0, earlyExitTotal = 0;
+        for (const att of attendance) {
+          const m = computeAttendanceMetrics(att, employee);
+          workedTotal += m.effectiveMin;
+          lateTotal += m.lateMin;
+          permissionTotal += m.permissionMin;
+          earlyExitTotal += m.earlyExitMin;
+        }
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-green-500" /><span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Worked Hours</span></div>
+              <p className="text-xl font-bold text-green-600">{minToHM(workedTotal)}</p>
+              <p className="text-xs text-gray-400">Effective (after permission)</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-red-500" /><span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Late In</span></div>
+              <p className="text-xl font-bold text-red-600">{minToHM(lateTotal)}</p>
+              <p className="text-xs text-gray-400">Past expected {employee.defaultInTime || '09:00'}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-amber-500" /><span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Permission</span></div>
+              <p className="text-xl font-bold text-amber-600">{minToHM(permissionTotal)}</p>
+              <p className="text-xs text-gray-400">Authorized absence</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1"><Clock className="w-4 h-4 text-orange-500" /><span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Early Exit</span></div>
+              <p className="text-xl font-bold text-orange-600">{minToHM(earlyExitTotal)}</p>
+              <p className="text-xs text-gray-400">Before expected {employee.defaultOutTime || '18:00'}</p>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Attendance Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {attendance.length === 0 ? (
@@ -269,6 +388,9 @@ export default function AttendancePage() {
                   <th className="text-center px-3 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs"><Coffee className="w-3.5 h-3.5 mx-auto text-orange-500" /></th>
                   <th className="text-center px-3 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs"><Sunset className="w-3.5 h-3.5 mx-auto text-orange-400" /></th>
                   <th className="text-center px-3 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs"><Moon className="w-3.5 h-3.5 mx-auto text-indigo-500" /></th>
+                  <th className="text-center px-3 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Worked</th>
+                  <th className="text-center px-3 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Late</th>
+                  <th className="text-center px-3 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Permission</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Work / Location</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs">Expenses</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider text-xs w-20">Actions</th>
@@ -277,6 +399,7 @@ export default function AttendancePage() {
               <tbody className="divide-y divide-gray-100">
                 {attendance.map((att) => {
                   const cfg = STATUS_CONFIG[att.status] || STATUS_CONFIG.present;
+                  const m = computeAttendanceMetrics(att, employee);
                   return (
                     <tr key={att._id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{formatDate(att.date)}</td>
@@ -287,6 +410,31 @@ export default function AttendancePage() {
                       <td className="px-3 py-3 text-center text-gray-700 font-mono">{att.afternoonOut || '-'}</td>
                       <td className="px-3 py-3 text-center text-gray-700 font-mono">{att.afterLunchIn || '-'}</td>
                       <td className="px-3 py-3 text-center text-gray-700 font-mono">{att.nightOut || '-'}</td>
+                      <td className="px-3 py-3 text-center">
+                        {m.workedMin > 0 ? (
+                          <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-700" title={`Effective: ${minToHM(m.effectiveMin)}`}>
+                            {minToHM(m.effectiveMin)}
+                          </span>
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {m.lateMin > 0 ? (
+                          <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded bg-red-100 text-red-700" title="Late arrival vs expected in-time">
+                            {minToHM(m.lateMin)}
+                          </span>
+                        ) : m.earlyExitMin > 0 ? (
+                          <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-700" title="Left early vs expected out-time">
+                            -{minToHM(m.earlyExitMin)}
+                          </span>
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {m.permissionMin > 0 ? (
+                          <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-700" title={att.permissionReason || ''}>
+                            {minToHM(m.permissionMin)}
+                          </span>
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
                       <td className="px-4 py-3">
                         {att.workDetails && <p className="text-gray-700 truncate max-w-[200px]" title={att.workDetails}>{att.workDetails}</p>}
                         {att.location && <p className="text-xs text-gray-400 flex items-center gap-1"><MapPin className="w-3 h-3" />{att.location}</p>}

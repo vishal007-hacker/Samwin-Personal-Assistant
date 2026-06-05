@@ -20,6 +20,10 @@ const attendanceSchema = new mongoose.Schema(
     workDetails: { type: String, trim: true },
     location: { type: String, trim: true },
 
+    // Permission hours — manually entered hours of authorized absence within the day
+    permissionHours: { type: Number, default: 0, min: 0 },
+    permissionReason: { type: String, trim: true },
+
     // Daily expenses
     expenses: { type: Number, default: 0 },
     expenseNotes: { type: String, trim: true },

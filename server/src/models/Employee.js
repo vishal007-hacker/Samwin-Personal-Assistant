@@ -10,6 +10,9 @@ const employeeSchema = new mongoose.Schema(
     aadhaarNumber: { type: String, trim: true },
     dateOfJoining: { type: Date },
     salary: { type: Number, default: 0 },
+    // Default work schedule — used to compute late arrival / early exit
+    defaultInTime: { type: String, trim: true, default: '09:00' },   // HH:MM 24h
+    defaultOutTime: { type: String, trim: true, default: '18:00' },  // HH:MM 24h
     bankAccount: {
       accountNumber: { type: String, trim: true },
       ifsc: { type: String, trim: true },

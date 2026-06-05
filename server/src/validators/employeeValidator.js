@@ -9,6 +9,8 @@ const createEmployee = Joi.object({
   aadhaarNumber: Joi.string().allow('').trim(),
   dateOfJoining: Joi.date().allow(null),
   salary: Joi.number().min(0).default(0),
+  defaultInTime: Joi.string().allow('').trim().pattern(/^([01]?\d|2[0-3]):[0-5]\d$/).message('In time must be HH:MM (24h)'),
+  defaultOutTime: Joi.string().allow('').trim().pattern(/^([01]?\d|2[0-3]):[0-5]\d$/).message('Out time must be HH:MM (24h)'),
   bankAccount: Joi.object({
     accountNumber: Joi.string().allow('').trim(),
     ifsc: Joi.string().allow('').trim(),

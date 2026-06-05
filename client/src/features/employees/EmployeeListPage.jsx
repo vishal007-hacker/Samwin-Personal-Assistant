@@ -42,6 +42,8 @@ function EmployeeFormModal({ employee, onClose }) {
     aadhaarNumber: employee?.aadhaarNumber || '',
     dateOfJoining: employee?.dateOfJoining ? employee.dateOfJoining.slice(0, 10) : '',
     salary: employee?.salary || '',
+    defaultInTime: employee?.defaultInTime || '09:00',
+    defaultOutTime: employee?.defaultOutTime || '18:00',
     bankAccount: {
       accountNumber: employee?.bankAccount?.accountNumber || '',
       ifsc: employee?.bankAccount?.ifsc || '',
@@ -101,6 +103,20 @@ function EmployeeFormModal({ employee, onClose }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Salary</label>
             <input type="number" value={form.salary} onChange={set('salary')} min="0" placeholder="0" className={inputCls} />
+          </div>
+          <div className="sm:col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs font-semibold text-blue-900 uppercase tracking-wider mb-2">Work Schedule (for late-arrival tracking)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Expected In Time</label>
+                <input type="time" value={form.defaultInTime} onChange={set('defaultInTime')} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Expected Out Time</label>
+                <input type="time" value={form.defaultOutTime} onChange={set('defaultOutTime')} className={inputCls} />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-1.5">Used to calculate late arrivals and early exits on the attendance page.</p>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>

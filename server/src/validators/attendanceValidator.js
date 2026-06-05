@@ -11,6 +11,8 @@ const createAttendance = Joi.object({
   location: Joi.string().allow('').trim(),
   expenses: Joi.number().min(0).default(0),
   expenseNotes: Joi.string().allow('').trim(),
+  permissionHours: Joi.number().min(0).default(0),
+  permissionReason: Joi.string().allow('').trim(),
   status: Joi.string().valid('present', 'absent', 'half-day', 'leave').default('present'),
   notes: Joi.string().allow('').trim(),
 });
@@ -24,6 +26,8 @@ const updateAttendance = Joi.object({
   location: Joi.string().allow('').trim(),
   expenses: Joi.number().min(0),
   expenseNotes: Joi.string().allow('').trim(),
+  permissionHours: Joi.number().min(0),
+  permissionReason: Joi.string().allow('').trim(),
   status: Joi.string().valid('present', 'absent', 'half-day', 'leave'),
   notes: Joi.string().allow('').trim(),
 });
