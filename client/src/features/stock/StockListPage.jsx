@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { useStocks, useBrands, useCreateStock, useUpdateStock, useSellStock, useDeleteStock, useNextStockCode } from './stockApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
+import AddableSelect from '../../components/AddableSelect';
 
 // ── Brand Options ───────────────────────────────────────────────────────────
 
@@ -156,11 +157,15 @@ function StockFormModal({ stock, brands, onClose, category = 'mobile' }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Brand *</label>
-            <select value={form.brand} onChange={set('brand')} required
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white">
-              <option value="">Select Brand</option>
-              {allBrands.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
+            <AddableSelect
+              value={form.brand}
+              onChange={set('brand')}
+              options={allBrands.map((b) => ({ value: b, label: b }))}
+              placeholder="Select Brand"
+              entityLabel="brand"
+              required
+              onCreate={async (name) => ({ value: name, label: name })}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{config.hasSpecs ? 'Model' : 'Item Name'} *</label>

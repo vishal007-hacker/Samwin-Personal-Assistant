@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useExpenses, useExpenseCategories, useExpenseSummary, useCreateExpense, useUpdateExpense, useDeleteExpense, useCreateExpenseCategory } from './expenseApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
+import AddableSelect from '../../components/AddableSelect';
 
 const DEFAULT_CATEGORIES = [
   'Rent', 'Salaries', 'Electricity', 'Internet', 'Phone Recharge',
@@ -97,6 +98,7 @@ function ExpenseFormModal({ expense, categories, onClose }) {
   const isEdit = !!expense;
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
+  const createCategoryMutation = useCreateExpenseCategory();
 
   const [form, setForm] = useState({
     title: expense?.title || '',
@@ -106,7 +108,6 @@ function ExpenseFormModal({ expense, categories, onClose }) {
     paymentMethod: expense?.paymentMethod || 'cash',
     notes: expense?.notes || '',
   });
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const mutation = isEdit ? updateMutation : createMutation;
@@ -153,20 +154,19 @@ function ExpenseFormModal({ expense, categories, onClose }) {
             </div>
           </div>
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-gray-700">Category *</label>
-              <button
-                type="button"
-                onClick={() => setShowCategoryModal(true)}
-                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-              >
-                + Add Custom
-              </button>
-            </div>
-            <select value={form.category} onChange={set('category')} required className={inputCls + ' bg-white'}>
-              <option value="">Select Category</option>
-              {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+            <AddableSelect
+              value={form.category}
+              onChange={set('category')}
+              options={allCategories.map((c) => ({ value: c, label: c }))}
+              placeholder="Select Category"
+              entityLabel="category"
+              required
+              onCreate={async (name) => {
+                await createCategoryMutation.mutateAsync(name);
+                return { value: name, label: name };
+              }}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
@@ -188,12 +188,6 @@ function ExpenseFormModal({ expense, categories, onClose }) {
           </div>
         </form>
       </Modal>
-      {showCategoryModal && (
-        <CustomCategoryModal
-          onClose={() => setShowCategoryModal(false)}
-          onCreated={(catName) => setForm((f) => ({ ...f, category: catName }))}
-        />
-      )}
     </>
   );
 }

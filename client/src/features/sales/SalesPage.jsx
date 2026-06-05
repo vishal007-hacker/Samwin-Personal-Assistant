@@ -11,6 +11,7 @@ import {
 import { useExpenseSummary } from '../expenses/expenseApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
+import AddableSelect from '../../components/AddableSelect';
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },
@@ -146,6 +147,7 @@ function SaleFormModal({ sale, categories, onClose }) {
   const isEdit = !!sale;
   const createMutation = useCreateSale();
   const updateMutation = useUpdateSale();
+  const createCategoryMutation = useCreateSalesCategory();
 
   const [form, setForm] = useState({
     category: sale?.category || '',
@@ -203,10 +205,19 @@ function SaleFormModal({ sale, categories, onClose }) {
       <form onSubmit={handleSubmit} className="p-4 space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-          <select value={form.category} onChange={set('category')} required className={inputCls + ' bg-white'}>
-            <option value="">Select Category</option>
-            {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
-          </select>
+          <AddableSelect
+            value={form.category}
+            onChange={set('category')}
+            options={categories.map((c) => ({ value: c._id, label: c.name }))}
+            placeholder="Select Category"
+            entityLabel="category"
+            required
+            onCreate={async (name) => {
+              const res = await createCategoryMutation.mutateAsync({ name });
+              const created = res?.data || res;
+              return { value: created._id, label: created.name };
+            }}
+          />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>

@@ -9,6 +9,7 @@ import {
   useMaintenanceRecords, useCreateRecord, useUpdateRecord, useDeleteRecord,
 } from './maintenanceApi';
 import { formatCurrency, formatDate, exportCSV } from '../../lib/utils';
+import AddableSelect from '../../components/AddableSelect';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -169,6 +170,7 @@ function RecordFormModal({ record, defaultProductId, products, onClose }) {
   const isEdit = !!record;
   const createMutation = useCreateRecord();
   const updateMutation = useUpdateRecord();
+  const createProductMutation = useCreateProduct();
   const mutation = isEdit ? updateMutation : createMutation;
 
   const [form, setForm] = useState({
@@ -217,14 +219,22 @@ function RecordFormModal({ record, defaultProductId, products, onClose }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Product <span className="text-red-500">*</span>
             </label>
-            <select value={form.product} onChange={set('product')} required className={inputCls + ' bg-white'}>
-              <option value="">Select product</option>
-              {products.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name}{p.category ? ` (${p.category})` : ''}{p.location ? ` — ${p.location}` : ''}
-                </option>
-              ))}
-            </select>
+            <AddableSelect
+              value={form.product}
+              onChange={set('product')}
+              options={products.map((p) => ({
+                value: p._id,
+                label: `${p.name}${p.category ? ` (${p.category})` : ''}${p.location ? ` — ${p.location}` : ''}`,
+              }))}
+              placeholder="Select product"
+              entityLabel="product"
+              required
+              onCreate={async (name) => {
+                const res = await createProductMutation.mutateAsync({ name });
+                const created = res?.data || res;
+                return { value: created._id, label: created.name };
+              }}
+            />
           </div>
         )}
 
