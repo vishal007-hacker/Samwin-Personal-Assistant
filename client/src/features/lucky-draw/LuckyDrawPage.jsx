@@ -101,7 +101,7 @@ function ParticipantFormModal({ entry, onClose }) {
 
 // ── Spinning Wheel ──────────────────────────────────────────────────────────
 
-function SpinningWheel({ participants, isSpinning, finalRotation }) {
+function SpinningWheel({ participants, isSpinning, finalRotation, winner }) {
   const size = 360;
   const radius = size / 2;
   const n = participants.length;
@@ -123,15 +123,19 @@ function SpinningWheel({ participants, isSpinning, finalRotation }) {
 
   return (
     <div className="relative inline-block">
-      {/* Pointer (top, pointing down) */}
-      <div className="absolute left-1/2 -translate-x-1/2 -top-1 z-10 w-0 h-0"
+      {/* Pointer (top, pointing DOWN into the wheel) — bright red so it's
+          always visible during the spin. */}
+      <div
+        className={`absolute left-1/2 -translate-x-1/2 -top-3 z-20 w-0 h-0 ${isSpinning ? 'animate-pulse' : ''}`}
         style={{
-          borderLeft: '16px solid transparent',
-          borderRight: '16px solid transparent',
-          borderTop: '28px solid #1f2937',
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+          borderLeft: '18px solid transparent',
+          borderRight: '18px solid transparent',
+          borderTop: '34px solid #dc2626',
+          filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))',
         }}
       />
+      {/* Pointer cap — a small circle hiding the tip so it visually "lands" */}
+      <div className="absolute left-1/2 -translate-x-1/2 -top-5 z-20 w-3 h-3 rounded-full bg-red-700 shadow" />
 
       {/* Wheel */}
       <div
@@ -173,10 +177,20 @@ function SpinningWheel({ participants, isSpinning, finalRotation }) {
 
       {/* Hub */}
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white border-4 border-gray-800 flex items-center justify-center shadow-lg"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white border-4 border-gray-800 flex items-center justify-center shadow-lg z-10"
       >
-        <Gift className="w-6 h-6 text-purple-600" />
+        {isSpinning
+          ? <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+          : <Gift className="w-6 h-6 text-purple-600" />}
       </div>
+
+      {/* Live winner banner: shows the landed name right below the wheel so
+          it's unmistakable which slice the pointer stopped on. */}
+      {winner && !isSpinning && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-4 z-20 px-5 py-2 bg-gradient-to-r from-amber-400 to-yellow-500 text-gray-900 text-base font-extrabold rounded-full shadow-xl border-2 border-white whitespace-nowrap">
+          🏆 #{winner.serialNo} · {winner.name}
+        </div>
+      )}
     </div>
   );
 }
@@ -246,17 +260,23 @@ export default function LuckyDrawPage() {
     try {
       const result = await drawMutation.mutateAsync(excludePrev);
       const won = result.data?.winner;
-      // Compute final rotation to land on the winner.
-      // Find the winner's index in the rendered participants list.
+      // Compute final rotation to land on the winner's slice CENTER.
+      // Must account for where the wheel is currently parked (after previous
+      // spins), otherwise the new spin lands on a slice boundary.
       const idx = participants.findIndex((p) => p._id === won._id);
       const n = participants.length;
       const sliceAngle = 360 / n;
-      // Center of the winner's slice (degrees) from start (0deg = right)
-      // The wheel's '-90deg' start means 0% is at top. We need to rotate so
-      // that the winner's slice center aligns with the top pointer.
       const winnerAngle = idx * sliceAngle + sliceAngle / 2;
-      const targetRotation = 360 * 6 - winnerAngle; // 6 full spins + land
-      setRotation(rotation + targetRotation);
+      // After rotation, slice center must end at compass 0 (top pointer).
+      // Original compass of winner center = winnerAngle. Need:
+      //   (winnerAngle + finalRotation) mod 360 === 0
+      //   => finalRotation mod 360 === (360 - winnerAngle) mod 360
+      const targetMod = ((360 - winnerAngle) % 360 + 360) % 360;
+      const currentMod = ((rotation % 360) + 360) % 360;
+      const minClockwise = ((targetMod - currentMod) + 360) % 360;
+      // Always go 6 extra full turns for the spinning effect.
+      const delta = 6 * 360 + minClockwise;
+      setRotation(rotation + delta);
 
       // Reveal after the CSS transition finishes (5s)
       setTimeout(() => {
@@ -347,7 +367,7 @@ export default function LuckyDrawPage() {
 
       {/* Wheel + Winner */}
       <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-200 p-6 mb-6 flex flex-col items-center">
-        <SpinningWheel participants={participants} isSpinning={isSpinning} finalRotation={rotation} />
+        <SpinningWheel participants={participants} isSpinning={isSpinning} finalRotation={rotation} winner={winner} />
 
         <div className="mt-6 flex flex-col items-center gap-3 w-full max-w-md">
           <label className="flex items-center gap-2 text-sm text-gray-700">
