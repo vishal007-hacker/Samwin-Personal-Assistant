@@ -11,8 +11,8 @@ const serviceSchema = new mongoose.Schema(
     },
     typeOfWork: {
       type: String,
-      enum: ['new_installation', 'addon_works', 'service'],
       required: true,
+      trim: true,
       index: true,
     },
     materialsUsed: { type: String, trim: true },

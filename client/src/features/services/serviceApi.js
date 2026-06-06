@@ -57,3 +57,28 @@ export function useDeleteService() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }
+
+// ── Service Types ──
+
+const TYPE_KEY = 'service-types';
+
+export function useServiceTypes() {
+  return useQuery({
+    queryKey: [TYPE_KEY],
+    queryFn: async () => {
+      const { data } = await api.get('/service-types');
+      return data;
+    },
+  });
+}
+
+export function useCreateServiceType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name) => {
+      const { data } = await api.post('/service-types', { name });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [TYPE_KEY] }),
+  });
+}

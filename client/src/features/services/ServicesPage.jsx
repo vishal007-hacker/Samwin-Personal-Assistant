@@ -4,20 +4,22 @@ import {
   IndianRupee, Calendar, FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useServices, useCreateService, useUpdateService, useDeleteService } from './serviceApi';
+import { useServices, useCreateService, useUpdateService, useDeleteService, useServiceTypes, useCreateServiceType } from './serviceApi';
 import { useSearchCustomers } from '../customers/customerApi';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatDate, formatCurrency, exportCSV } from '../../lib/utils';
+import AddableSelect from '../../components/AddableSelect';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const TYPE_OPTIONS = [
-  { value: 'new_installation', label: 'New Installation' },
-  { value: 'addon_works', label: 'Addon Works' },
-  { value: 'service', label: 'Service' },
-];
-
-const TYPE_LABELS = Object.fromEntries(TYPE_OPTIONS.map((o) => [o.value, o.label]));
+// Pretty labels for the 3 legacy codes that pre-existed before this list
+// became user-editable. Any user-added type just displays its name as-is.
+const LEGACY_LABELS = {
+  new_installation: 'New Installation',
+  addon_works: 'Addon Works',
+  service: 'Service',
+};
+const labelFor = (v) => LEGACY_LABELS[v] || v;
 
 const TYPE_COLORS = {
   new_installation: 'bg-emerald-100 text-emerald-700',
@@ -105,6 +107,9 @@ function ServiceFormModal({ entry, onClose }) {
   const isEdit = !!entry;
   const createMutation = useCreateService();
   const updateMutation = useUpdateService();
+  const createTypeMutation = useCreateServiceType();
+  const { data: typesData } = useServiceTypes();
+  const types = typesData?.data || [];
   const mutation = isEdit ? updateMutation : createMutation;
 
   const [customer, setCustomer] = useState(entry?.customer || null);
@@ -161,11 +166,19 @@ function ServiceFormModal({ entry, onClose }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Type of Work <span className="text-red-500">*</span>
             </label>
-            <select value={form.typeOfWork} onChange={set('typeOfWork')} required className={inputCls + ' bg-white'}>
-              {TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+            <AddableSelect
+              value={form.typeOfWork}
+              onChange={set('typeOfWork')}
+              options={types.map((t) => ({ value: t.name, label: labelFor(t.name) }))}
+              placeholder="Select type"
+              entityLabel="service type"
+              required
+              onCreate={async (name) => {
+                const res = await createTypeMutation.mutateAsync(name);
+                const created = res?.data || res;
+                return { value: created.name, label: labelFor(created.name) };
+              }}
+            />
           </div>
         </div>
 
@@ -245,7 +258,7 @@ function sendServiceReminder(svc) {
     ``,
     `This is a friendly reminder from *Samwin Infotech* regarding your previous service:`,
     ``,
-    `*Service Type:* ${TYPE_LABELS[svc.typeOfWork] || svc.typeOfWork}`,
+    `*Service Type:* ${labelFor(svc.typeOfWork)}`,
     `*Date:* ${formatDate(svc.date)}`,
     svc.materialsUsed ? `*Work Done:* ${svc.materialsUsed}` : null,
     ``,
@@ -269,6 +282,8 @@ export default function ServicesPage() {
     search: debouncedSearch || undefined,
     typeOfWork: typeFilter || undefined,
   });
+  const { data: typesData } = useServiceTypes();
+  const types = typesData?.data || [];
   const deleteMutation = useDeleteService();
 
   const services = data?.data || [];
@@ -302,7 +317,7 @@ export default function ServicesPage() {
         formatDate(s.date),
         s.customer?.name || '',
         s.customer?.phone || '',
-        TYPE_LABELS[s.typeOfWork] || s.typeOfWork,
+        labelFor(s.typeOfWork),
         s.materialsUsed || '',
         s.askingPrice || 0,
         s.receivedCash || 0,
@@ -387,8 +402,8 @@ export default function ServicesPage() {
           className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
         >
           <option value="">All Types</option>
-          {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+          {types.map((t) => (
+            <option key={t._id} value={t.name}>{labelFor(t.name)}</option>
           ))}
         </select>
       </div>
@@ -438,7 +453,7 @@ export default function ServicesPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${TYPE_COLORS[svc.typeOfWork] || 'bg-gray-100 text-gray-700'}`}>
-                          {TYPE_LABELS[svc.typeOfWork] || svc.typeOfWork}
+                          {labelFor(svc.typeOfWork)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">

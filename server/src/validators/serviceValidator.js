@@ -3,7 +3,7 @@ const Joi = require('joi');
 const createService = Joi.object({
   date: Joi.date().default(() => new Date()),
   customer: Joi.string().required().hex().length(24),
-  typeOfWork: Joi.string().valid('new_installation', 'addon_works', 'service').required(),
+  typeOfWork: Joi.string().required().trim().min(1).max(100),
   materialsUsed: Joi.string().allow('').trim(),
   askingPrice: Joi.number().min(0).default(0),
   receivedCash: Joi.number().min(0).default(0),
@@ -13,7 +13,7 @@ const createService = Joi.object({
 const updateService = Joi.object({
   date: Joi.date(),
   customer: Joi.string().hex().length(24),
-  typeOfWork: Joi.string().valid('new_installation', 'addon_works', 'service'),
+  typeOfWork: Joi.string().trim().min(1).max(100),
   materialsUsed: Joi.string().allow('').trim(),
   askingPrice: Joi.number().min(0),
   receivedCash: Joi.number().min(0),
