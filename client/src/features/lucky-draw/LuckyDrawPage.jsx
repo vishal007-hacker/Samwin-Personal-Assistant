@@ -123,19 +123,24 @@ function SpinningWheel({ participants, isSpinning, finalRotation, winner }) {
 
   return (
     <div className="relative inline-block">
-      {/* Pointer (top, pointing DOWN into the wheel) — bright red so it's
-          always visible during the spin. */}
+      {/* Lollipop dome — anchored above the wheel as the visible "marker". */}
+      <div className="absolute left-1/2 -translate-x-1/2 -top-3 z-20 w-5 h-5 rounded-full bg-red-700 border-2 border-white shadow-lg" />
+      {/* Pointer triangle. The element box sits 14px INSIDE the wheel — that's
+          where the tip lands. The colored region extends 22px ABOVE the box.
+          Result: the visible tip is unambiguously inside a single slice, even
+          when there are 30+ participants and slices are only a few degrees wide.
+          The triangle is narrow (16px wide) so it doesn't visually overlap
+          neighbouring slices. */}
       <div
-        className={`absolute left-1/2 -translate-x-1/2 -top-3 z-20 w-0 h-0 ${isSpinning ? 'animate-pulse' : ''}`}
+        className={`absolute left-1/2 -translate-x-1/2 z-20 w-0 h-0 ${isSpinning ? 'animate-pulse' : ''}`}
         style={{
-          borderLeft: '18px solid transparent',
-          borderRight: '18px solid transparent',
-          borderTop: '34px solid #dc2626',
-          filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))',
+          top: '14px',
+          borderLeft: '8px solid transparent',
+          borderRight: '8px solid transparent',
+          borderTop: '22px solid #dc2626',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
         }}
       />
-      {/* Pointer cap — a small circle hiding the tip so it visually "lands" */}
-      <div className="absolute left-1/2 -translate-x-1/2 -top-5 z-20 w-3 h-3 rounded-full bg-red-700 shadow" />
 
       {/* Wheel */}
       <div
