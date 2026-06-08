@@ -470,8 +470,8 @@ export default function DashboardPage() {
               <BookOpen className="w-5 h-5 text-white" />
             </div>
             <Link
-              to={`/posters?ref=${encodeURIComponent(bibleVerse.reference || '')}`}
-              title="Turn this verse into a shareable poster"
+              to="/posters?seed=today"
+              title="Turn this verse into a shareable poster (Tamil + English)"
               className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-white/15 hover:bg-white/25 text-white rounded-md transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5" /> Make Poster

@@ -4,11 +4,14 @@ import api from '../../lib/axios';
 const KEY = 'posters';
 const VERSE_KEY = 'bible-verse';
 
+// Uses the existing /api/bible-verse/today endpoint that the dashboard banner
+// also calls. It returns { tamil, english, reference, date } — perfect for
+// the poster designer's language toggle.
 export function useVerseOfDay() {
   return useQuery({
     queryKey: [VERSE_KEY, 'today'],
-    queryFn: async () => (await api.get('/posters/verse-of-day')).data,
-    staleTime: 1000 * 60 * 60, // 1h — re-checks happen rarely; server caches for the day anyway
+    queryFn: async () => (await api.get('/bible-verse/today')).data,
+    staleTime: 1000 * 60 * 60,
   });
 }
 

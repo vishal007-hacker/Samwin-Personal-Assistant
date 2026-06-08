@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Image as ImageIcon, Sparkles, Download, Save, Trash2, Loader2, RefreshCw,
-  MessageCircle, BookOpen, Palette, Type, Edit3, Plus, Heart, X,
+  MessageCircle, BookOpen, Palette, Type, Edit3, Plus, Heart, X, Languages,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
@@ -85,10 +85,19 @@ const themeById = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
 // ── Poster preview component (also what gets captured to PNG) ───────────────
 
 const POSTER_SIZE = 1080; // px — Instagram square
+const TAMIL_FONT = '"Noto Serif Tamil", "Noto Sans Tamil", "Latha", "Nirmala UI", serif';
 
-function PosterPreview({ title, body, footer, theme, scale = 1 }) {
+function PosterPreview({ title, englishBody, tamilBody, language, footer, theme, scale = 1 }) {
   const t = themeById(theme);
   const size = POSTER_SIZE * scale;
+  const showEn = language !== 'ta' && !!englishBody;
+  const showTa = language !== 'en' && !!tamilBody;
+  const both = showEn && showTa;
+
+  // When showing both, allocate less vertical space per text → smaller fonts.
+  const enSize = both ? bodyFontSize(englishBody, true) : bodyFontSize(englishBody, false);
+  const taSize = both ? bodyFontSize(tamilBody, true) : bodyFontSize(tamilBody, false);
+
   return (
     <div
       className="relative overflow-hidden shadow-2xl"
@@ -100,7 +109,7 @@ function PosterPreview({ title, body, footer, theme, scale = 1 }) {
         fontFamily: t.fontFamily,
       }}
     >
-      {/* Decorative corner ornaments */}
+      {/* Decorative ornaments */}
       <div className={`absolute -top-20 -left-20 w-60 h-60 rounded-full ${t.decorClass}`} />
       <div className={`absolute -bottom-32 -right-32 w-96 h-96 rounded-full ${t.decorClass}`} />
       <div className={`absolute top-1/3 -right-10 w-32 h-32 rounded-full ${t.decorClass}`} />
@@ -122,12 +131,13 @@ function PosterPreview({ title, body, footer, theme, scale = 1 }) {
       >
         {/* Top icon */}
         <div
-          className="rounded-full flex items-center justify-center mb-8"
+          className="rounded-full flex items-center justify-center"
           style={{
             width: 80 * scale,
             height: 80 * scale,
             background: `${t.textColor}22`,
             border: `${2 * scale}px solid ${t.textColor}55`,
+            marginBottom: 32 * scale,
           }}
         >
           <BookOpen style={{ width: 40 * scale, height: 40 * scale }} />
@@ -137,29 +147,58 @@ function PosterPreview({ title, body, footer, theme, scale = 1 }) {
         {title && (
           <p
             className="font-bold tracking-widest uppercase opacity-80"
-            style={{ fontSize: 28 * scale, marginBottom: 32 * scale, letterSpacing: 4 * scale }}
+            style={{ fontSize: 28 * scale, marginBottom: 28 * scale, letterSpacing: 4 * scale }}
           >
             {title}
           </p>
         )}
 
-        {/* Body */}
-        <p
-          className="font-bold leading-snug px-4"
-          style={{
-            fontSize: bodyFontSize(body) * scale,
-            maxWidth: 900 * scale,
-            lineHeight: 1.3,
-          }}
-        >
-          {body && body.startsWith('"') ? body : `"${body}"`}
-        </p>
+        {/* English body */}
+        {showEn && (
+          <p
+            className="font-bold leading-snug px-2"
+            style={{
+              fontSize: enSize * scale,
+              maxWidth: 900 * scale,
+              lineHeight: 1.3,
+            }}
+          >
+            {englishBody.startsWith('"') ? englishBody : `"${englishBody}"`}
+          </p>
+        )}
+
+        {/* Divider between English + Tamil when both shown */}
+        {both && (
+          <div
+            style={{
+              width: 120 * scale,
+              height: 2 * scale,
+              background: `${t.textColor}55`,
+              margin: `${28 * scale}px 0`,
+            }}
+          />
+        )}
+
+        {/* Tamil body */}
+        {showTa && (
+          <p
+            className="font-bold leading-snug px-2"
+            style={{
+              fontFamily: TAMIL_FONT,
+              fontSize: taSize * scale,
+              maxWidth: 950 * scale,
+              lineHeight: 1.5, // Tamil glyphs benefit from extra leading
+            }}
+          >
+            {tamilBody}
+          </p>
+        )}
 
         {/* Footer */}
         {footer && (
           <p
             className="opacity-70 italic"
-            style={{ fontSize: 24 * scale, marginTop: 48 * scale }}
+            style={{ fontSize: 24 * scale, marginTop: 40 * scale }}
           >
             {footer}
           </p>
@@ -169,9 +208,17 @@ function PosterPreview({ title, body, footer, theme, scale = 1 }) {
   );
 }
 
-// Auto-shrink the body font when the text is long so it always fits.
-function bodyFontSize(body) {
+// Auto-shrink body font when the text is long. `compact=true` is used in
+// bilingual mode where each language gets less vertical space.
+function bodyFontSize(body, compact = false) {
   const len = (body || '').length;
+  if (compact) {
+    if (len < 80) return 50;
+    if (len < 160) return 42;
+    if (len < 250) return 34;
+    if (len < 400) return 28;
+    return 24;
+  }
   if (len < 80) return 72;
   if (len < 160) return 58;
   if (len < 250) return 46;
@@ -183,7 +230,14 @@ function bodyFontSize(body) {
 
 function PosterDesigner({ initialVerse, onClose }) {
   const [title, setTitle] = useState(initialVerse?.reference || '');
-  const [body, setBody] = useState(initialVerse?.text || '');
+  const [englishBody, setEnglishBody] = useState(initialVerse?.english || initialVerse?.text || '');
+  const [tamilBody, setTamilBody] = useState(initialVerse?.tamil || '');
+  // Default to whichever language is present; prefer "both" when both exist.
+  const [language, setLanguage] = useState(() => {
+    if (initialVerse?.tamil && (initialVerse?.english || initialVerse?.text)) return 'both';
+    if (initialVerse?.tamil) return 'ta';
+    return 'en';
+  });
   const [footer, setFooter] = useState('— Samwin Infotech');
   const [theme, setTheme] = useState('sunset');
   const [refLookup, setRefLookup] = useState('');
@@ -192,10 +246,10 @@ function PosterDesigner({ initialVerse, onClose }) {
   const createMutation = useCreatePoster();
   const { data: lookupData, isFetching: lookupFetching, refetch: lookup } = useFetchVerse(refLookup);
 
-  // If we were opened with a reference but no text (Dashboard "Make Poster"
-  // link), auto-fetch the verse text once.
+  // If we were opened with a reference but no English body (Dashboard "Make
+  // Poster" deep-link), auto-fetch the KJV text once.
   useEffect(() => {
-    if (initialVerse?.reference && !initialVerse?.text) {
+    if (initialVerse?.reference && !initialVerse?.english && !initialVerse?.text) {
       setRefLookup(initialVerse.reference);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,10 +258,11 @@ function PosterDesigner({ initialVerse, onClose }) {
   useEffect(() => {
     const v = lookupData?.data;
     if (v?.text) {
-      setBody(v.text);
-      setTitle(v.reference);
+      setEnglishBody(v.text);
+      if (!title) setTitle(v.reference);
       toast.success(`Loaded ${v.reference}`);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookupData]);
 
   const handleDownload = async () => {
@@ -243,10 +298,11 @@ function PosterDesigner({ initialVerse, onClose }) {
         if (!blob) return toast.error('Image generation failed');
         const file = new File([blob], 'poster.png', { type: 'image/png' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          const shareText = [title, '', englishBody, tamilBody, '', footer].filter(Boolean).join('\n');
           await navigator.share({
             files: [file],
             title: title || 'Daily Verse',
-            text: `${title ? `${title}\n\n` : ''}${body}`,
+            text: shareText,
           });
         } else {
           // Fallback: download + open WhatsApp Web with text
@@ -256,7 +312,8 @@ function PosterDesigner({ initialVerse, onClose }) {
           a.download = 'poster.png';
           a.click();
           URL.revokeObjectURL(url);
-          window.open(`https://wa.me/?text=${encodeURIComponent(`${title}\n\n${body}\n\n${footer}`)}`, '_blank');
+          const shareText = [title, '', englishBody, tamilBody, '', footer].filter(Boolean).join('\n');
+          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
           toast('Image saved. Attach it in WhatsApp Web that just opened.', { icon: '📤' });
         }
       });
@@ -266,9 +323,18 @@ function PosterDesigner({ initialVerse, onClose }) {
   };
 
   const handleSave = async () => {
-    if (!body.trim()) return toast.error('Body text is required');
+    if (!englishBody.trim() && !tamilBody.trim()) return toast.error('At least one verse body is required');
+    // Persist both bodies in the style blob (Mixed type, no DB migration needed)
+    // and keep the active language's text in bodyText for the gallery thumbnail.
+    const bodyText = language === 'ta' ? tamilBody : englishBody || tamilBody;
     try {
-      await createMutation.mutateAsync({ title, bodyText: body, footer, theme });
+      await createMutation.mutateAsync({
+        title,
+        bodyText,
+        footer,
+        theme,
+        style: { englishBody, tamilBody, language },
+      });
       toast.success('Poster saved to gallery');
       onClose();
     } catch (err) {
@@ -304,7 +370,14 @@ function PosterDesigner({ initialVerse, onClose }) {
               }}
             >
               <div ref={previewRef}>
-                <PosterPreview title={title} body={body} footer={footer} theme={theme} />
+                <PosterPreview
+                  title={title}
+                  englishBody={englishBody}
+                  tamilBody={tamilBody}
+                  language={language}
+                  footer={footer}
+                  theme={theme}
+                />
               </div>
             </div>
           </div>
@@ -345,18 +418,61 @@ function PosterDesigner({ initialVerse, onClose }) {
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. John 3:16" className={inputCls} />
             </div>
 
-            {/* Body */}
+            {/* Language toggle */}
             <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-2">Verse / Quote</label>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={6}
-                placeholder="The verse or message to display…"
-                className={inputCls + ' resize-none'}
-              />
-              <p className="text-xs text-gray-500 mt-1">{body.length} chars — font auto-shrinks for longer text</p>
+              <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+                <Languages className="w-4 h-4 text-purple-600" /> Language
+              </label>
+              <div className="grid grid-cols-3 gap-1 p-1 bg-gray-100 rounded-lg">
+                {[
+                  { v: 'ta', l: 'தமிழ்' },
+                  { v: 'both', l: 'Both' },
+                  { v: 'en', l: 'English' },
+                ].map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setLanguage(opt.v)}
+                    className={`px-2 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                      language === opt.v ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:bg-white/50'
+                    }`}
+                  >
+                    {opt.l}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* English body — shown when language is en or both */}
+            {language !== 'ta' && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">English Verse</label>
+                <textarea
+                  value={englishBody}
+                  onChange={(e) => setEnglishBody(e.target.value)}
+                  rows={language === 'both' ? 3 : 5}
+                  placeholder="English verse text…"
+                  className={inputCls + ' resize-none'}
+                />
+                <p className="text-xs text-gray-500 mt-1">{englishBody.length} chars</p>
+              </div>
+            )}
+
+            {/* Tamil body — shown when language is ta or both */}
+            {language !== 'en' && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-2">தமிழ் வசனம் (Tamil Verse)</label>
+                <textarea
+                  value={tamilBody}
+                  onChange={(e) => setTamilBody(e.target.value)}
+                  rows={language === 'both' ? 3 : 5}
+                  placeholder="தமிழ் வசன உரை…"
+                  className={inputCls + ' resize-none'}
+                  style={{ fontFamily: TAMIL_FONT }}
+                />
+                <p className="text-xs text-gray-500 mt-1">{tamilBody.length} chars</p>
+              </div>
+            )}
 
             {/* Footer */}
             <div>
@@ -433,19 +549,35 @@ export default function PostersPage() {
   const [previewing, setPreviewing] = useState(null);
   const previewRef = useRef(null);
 
-  // If the URL has ?ref=John+3:16 (from the dashboard "Make Poster" link), open
-  // the designer pre-seeded with that reference. The designer will fetch the
-  // verse text via its built-in lookup.
+  // Deep-link handling.
+  //
+  // ?seed=today  — open designer pre-filled with today's verse (Tamil + English
+  //                from the existing /api/bible-verse/today endpoint). We wait
+  //                for the verse query to resolve before opening so both bodies
+  //                are seeded together.
+  // ?ref=John+3:16 — open designer with that reference and auto-fetch KJV text
+  //                  via bible-api.com (English only; legacy behaviour).
   useEffect(() => {
-    const ref = searchParams.get('ref');
-    if (ref) {
-      setDesignerSeed({ reference: ref, text: '' });
+    if (searchParams.get('seed') === 'today' && verse) {
+      setDesignerSeed({
+        reference: verse.reference,
+        english: verse.english,
+        tamil: verse.tamil,
+      });
       setDesignerOpen(true);
-      searchParams.delete('ref');
+      searchParams.delete('seed');
       setSearchParams(searchParams, { replace: true });
+    } else {
+      const ref = searchParams.get('ref');
+      if (ref) {
+        setDesignerSeed({ reference: ref, text: '' });
+        setDesignerOpen(true);
+        searchParams.delete('ref');
+        setSearchParams(searchParams, { replace: true });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [verse]);
 
   const openDesigner = (seed = null) => {
     setDesignerSeed(seed);
@@ -523,11 +655,18 @@ export default function PostersPage() {
               <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1">Verse of the Day</p>
               {verseLoading ? (
                 <div className="flex items-center gap-2 text-gray-500 py-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
-              ) : verse?.text ? (
+              ) : (verse?.english || verse?.tamil) ? (
                 <>
-                  <p className="text-lg font-bold text-gray-900 mb-1">{verse.reference}</p>
-                  <p className="text-gray-700 italic leading-relaxed">"{verse.text}"</p>
-                  <p className="text-xs text-gray-400 mt-2">{verse.translation || 'KJV'}{verse.cached ? ' · cached' : ''}</p>
+                  {verse.reference && <p className="text-lg font-bold text-gray-900 mb-1">{verse.reference}</p>}
+                  {verse.english && <p className="text-gray-700 italic leading-relaxed mb-2">"{verse.english}"</p>}
+                  {verse.tamil && (
+                    <p
+                      className="text-gray-700 italic leading-relaxed"
+                      style={{ fontFamily: TAMIL_FONT }}
+                    >
+                      {verse.tamil}
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="text-gray-500 text-sm">Could not load today's verse. {verse?.error && <span className="block text-red-500 mt-1">{verse.error}</span>}</p>
@@ -539,8 +678,8 @@ export default function PostersPage() {
               <RefreshCw className="w-4 h-4" />
             </button>
             <button
-              onClick={() => openDesigner({ reference: verse?.reference, text: verse?.text })}
-              disabled={!verse?.text}
+              onClick={() => openDesigner({ reference: verse?.reference, english: verse?.english, tamil: verse?.tamil })}
+              disabled={!verse?.english && !verse?.tamil}
               className="px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 whitespace-nowrap"
             >
               <Sparkles className="w-4 h-4 inline mr-1" /> Make Poster
@@ -569,6 +708,8 @@ export default function PostersPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-5">
             {posters.map((p) => {
               const t = themeById(p.theme);
+              const en = p.style?.englishBody;
+              const ta = p.style?.tamilBody;
               return (
                 <div key={p._id} className="group relative aspect-square rounded-xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-lg transition-shadow">
                   <div
@@ -576,12 +717,12 @@ export default function PostersPage() {
                     style={{ background: t.background, color: t.textColor, fontFamily: t.fontFamily }}
                   >
                     {p.title && <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">{p.title}</p>}
-                    <p className="text-xs leading-tight font-bold line-clamp-6">{p.bodyText}</p>
+                    <p className="text-[11px] leading-tight font-bold line-clamp-3">{en || p.bodyText}</p>
+                    {ta && <p className="text-[11px] leading-tight font-bold line-clamp-3 mt-1" style={{ fontFamily: TAMIL_FONT }}>{ta}</p>}
                   </div>
-                  {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
                     <button onClick={() => downloadSaved(p)} title="Download" className="p-2 bg-white rounded-full hover:bg-gray-100"><Download className="w-4 h-4 text-gray-700" /></button>
-                    <button onClick={() => openDesigner({ reference: p.title, text: p.bodyText })} title="Edit copy" className="p-2 bg-white rounded-full hover:bg-gray-100"><Edit3 className="w-4 h-4 text-gray-700" /></button>
+                    <button onClick={() => openDesigner({ reference: p.title, english: en || p.bodyText, tamil: ta })} title="Edit copy" className="p-2 bg-white rounded-full hover:bg-gray-100"><Edit3 className="w-4 h-4 text-gray-700" /></button>
                     <button onClick={() => toggleFavorite(p)} title="Favorite" className="p-2 bg-white rounded-full hover:bg-gray-100"><Heart className={`w-4 h-4 ${p.isFavorite ? 'text-rose-500 fill-rose-500' : 'text-gray-700'}`} /></button>
                     <button onClick={() => handleDelete(p)} title="Delete" className="p-2 bg-white rounded-full hover:bg-red-100"><Trash2 className="w-4 h-4 text-red-600" /></button>
                   </div>
@@ -596,7 +737,14 @@ export default function PostersPage() {
       {previewing && (
         <div className="fixed -left-[9999px] top-0 pointer-events-none">
           <div ref={previewRef}>
-            <PosterPreview title={previewing.title} body={previewing.bodyText} footer={previewing.footer} theme={previewing.theme} />
+            <PosterPreview
+              title={previewing.title}
+              englishBody={previewing.style?.englishBody || previewing.bodyText}
+              tamilBody={previewing.style?.tamilBody}
+              language={previewing.style?.language || (previewing.style?.tamilBody ? 'both' : 'en')}
+              footer={previewing.footer}
+              theme={previewing.theme}
+            />
           </div>
         </div>
       )}
