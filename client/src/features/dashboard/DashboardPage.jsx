@@ -26,6 +26,7 @@ import {
   Repeat,
   BookOpen,
   Wallet,
+  Sparkles,
 } from 'lucide-react';
 import api from '../../lib/axios';
 import {
@@ -468,6 +469,13 @@ export default function DashboardPage() {
             <div className="shrink-0 p-2 bg-white/20 rounded-lg">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
+            <Link
+              to={`/posters?ref=${encodeURIComponent(bibleVerse.reference || '')}`}
+              title="Turn this verse into a shareable poster"
+              className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-white/15 hover:bg-white/25 text-white rounded-md transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Make Poster
+            </Link>
             <div className="overflow-hidden flex-1 min-w-0">
               <div className="animate-marquee whitespace-nowrap">
                 <span className="text-sm font-semibold text-yellow-200 mr-4">

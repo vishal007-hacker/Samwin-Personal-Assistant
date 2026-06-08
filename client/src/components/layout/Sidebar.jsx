@@ -21,6 +21,7 @@ import {
   Banknote,
   Hammer,
   Gift,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -43,6 +44,7 @@ const navItems = [
   { to: '/employees', label: 'Employees', icon: UserCheck },
   { to: '/my-reminders', label: 'My Reminders', icon: BellRing },
   { to: '/lucky-draw', label: 'Lucky Draw', icon: Gift },
+  { to: '/posters', label: 'Posters', icon: ImageIcon },
 ];
 
 function NavItem({ item, onClose }) {

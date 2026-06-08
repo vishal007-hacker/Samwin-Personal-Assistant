@@ -31,6 +31,7 @@ const MaintenanceRecord = require('../models/MaintenanceRecord');
 const DeviceService = require('../models/DeviceService');
 const LuckyDrawParticipant = require('../models/LuckyDrawParticipant');
 const ServiceType = require('../models/ServiceType');
+const Poster = require('../models/Poster');
 
 const collections = [
   { name: 'users', model: User },
@@ -59,6 +60,7 @@ const collections = [
   { name: 'deviceServices', model: DeviceService },
   { name: 'luckyDrawParticipants', model: LuckyDrawParticipant },
   { name: 'serviceTypes', model: ServiceType },
+  { name: 'posters', model: Poster },
 ];
 
 async function exportData() {

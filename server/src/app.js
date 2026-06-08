@@ -57,6 +57,7 @@ app.use('/api/backup', require('./routes/backupRoutes'));
 app.use('/api/device-service', require('./routes/deviceServiceRoutes'));
 app.use('/api/lucky-draw', require('./routes/luckyDrawRoutes'));
 app.use('/api/service-types', require('./routes/serviceTypeRoutes'));
+app.use('/api/posters', require('./routes/posterRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {
