@@ -1,0 +1,114 @@
+[
+  {
+    "_id": "69ac50ee9856096891679d03",
+    "name": "Recharge Commission",
+    "createdAt": "2026-03-07T16:23:10.227Z",
+    "updatedAt": "2026-03-07T16:23:10.227Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51069856096891679d09",
+    "name": "Printouts",
+    "createdAt": "2026-03-07T16:23:34.923Z",
+    "updatedAt": "2026-03-07T16:23:34.923Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51159856096891679d0f",
+    "name": "Water Bill Commission",
+    "createdAt": "2026-03-07T16:23:49.020Z",
+    "updatedAt": "2026-03-07T16:23:49.020Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac512c9856096891679d18",
+    "name": "EB Commission",
+    "createdAt": "2026-03-07T16:24:12.085Z",
+    "updatedAt": "2026-03-07T16:24:12.085Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51449856096891679d1e",
+    "name": "AEPS Commission",
+    "createdAt": "2026-03-07T16:24:36.443Z",
+    "updatedAt": "2026-03-07T16:24:36.443Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac514d9856096891679d24",
+    "name": "UPI Commission",
+    "createdAt": "2026-03-07T16:24:45.387Z",
+    "updatedAt": "2026-03-07T16:24:45.387Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac516c9856096891679d2d",
+    "name": "Ticket Booking Commission",
+    "createdAt": "2026-03-07T16:25:16.368Z",
+    "updatedAt": "2026-03-07T16:25:16.368Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51899856096891679d33",
+    "name": "New Keypad Mobile Sales Profit",
+    "createdAt": "2026-03-07T16:25:45.158Z",
+    "updatedAt": "2026-03-07T16:25:45.158Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac519a9856096891679d39",
+    "name": "Used Mobiles Sale Profit",
+    "createdAt": "2026-03-07T16:26:02.584Z",
+    "updatedAt": "2026-03-07T16:26:02.584Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51a89856096891679d42",
+    "name": "Mobile Service",
+    "createdAt": "2026-03-07T16:26:16.471Z",
+    "updatedAt": "2026-03-07T16:26:16.471Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51bb9856096891679d48",
+    "name": "Computer Sales",
+    "createdAt": "2026-03-07T16:26:35.886Z",
+    "updatedAt": "2026-03-07T16:26:35.886Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51ce9856096891679d4e",
+    "name": "Computer Service",
+    "createdAt": "2026-03-07T16:26:54.948Z",
+    "updatedAt": "2026-03-07T16:26:54.948Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51de9856096891679d57",
+    "name": "Accessories Sales",
+    "createdAt": "2026-03-07T16:27:10.167Z",
+    "updatedAt": "2026-03-07T16:27:10.167Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac51fc9856096891679d5d",
+    "name": "CCTV New Installation Profit",
+    "createdAt": "2026-03-07T16:27:40.222Z",
+    "updatedAt": "2026-03-07T16:27:40.222Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac52079856096891679d63",
+    "name": "CCTV Service Profit",
+    "createdAt": "2026-03-07T16:27:51.813Z",
+    "updatedAt": "2026-03-07T16:27:51.813Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ac536c9856096891679dd7",
+    "name": "Old Credit",
+    "createdAt": "2026-03-07T16:33:48.103Z",
+    "updatedAt": "2026-03-07T16:33:48.103Z",
+    "__v": 0
+  }
+]
