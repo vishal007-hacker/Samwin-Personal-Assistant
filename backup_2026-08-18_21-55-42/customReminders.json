@@ -1,0 +1,58 @@
+[
+  {
+    "_id": "69c403f4a8ea984d0e61ee8c",
+    "title": "PAN Card",
+    "intervalMinutes": 15,
+    "endDate": "2026-03-27T18:29:59.000Z",
+    "nextTrigger": "2026-03-25T16:19:20.289Z",
+    "isActive": false,
+    "lastTriggered": "2026-03-25T16:04:20.289Z",
+    "triggerCount": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-25T15:49:08.250Z",
+    "updatedAt": "2026-03-25T16:07:21.466Z",
+    "__v": 0
+  },
+  {
+    "_id": "69c4050d0b2cfddd894bbde9",
+    "title": "EB Bill Payments",
+    "intervalMinutes": 5,
+    "endDate": "2026-03-25T18:29:59.000Z",
+    "nextTrigger": "2026-03-25T16:49:23.252Z",
+    "isActive": false,
+    "lastTriggered": "2026-03-25T16:44:23.252Z",
+    "triggerCount": 7,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-25T15:53:49.886Z",
+    "updatedAt": "2026-03-26T03:14:14.187Z",
+    "__v": 0
+  },
+  {
+    "_id": "69cfa3c0d588a2a85487228f",
+    "title": "test",
+    "intervalMinutes": 5,
+    "endDate": "2026-04-04T18:29:59.000Z",
+    "nextTrigger": "2026-04-03T17:53:50.515Z",
+    "isActive": false,
+    "lastTriggered": "2026-04-03T17:48:50.515Z",
+    "triggerCount": 27,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-04-03T11:25:52.198Z",
+    "updatedAt": "2026-04-05T09:47:40.343Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ff09103c956568299c4791",
+    "title": "Deva Shop for Jio",
+    "intervalMinutes": 15,
+    "endDate": "2026-05-09T18:29:59.000Z",
+    "nextTrigger": "2026-05-09T12:36:11.462Z",
+    "isActive": false,
+    "lastTriggered": "2026-05-09T12:21:11.462Z",
+    "triggerCount": 4,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-09T10:14:40.099Z",
+    "updatedAt": "2026-05-09T12:21:21.404Z",
+    "__v": 0
+  }
+]
