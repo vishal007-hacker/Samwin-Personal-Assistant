@@ -1,0 +1,88 @@
+{
+  "name": "samwin-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Samwin Infotech - Business Management System (Desktop)",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/run.js electron .",
+    "dist": "node scripts/run.js electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.3"
+  },
+  "build": {
+    "appId": "com.samwininfotech.desktop",
+    "productName": "Samwin Infotech",
+    "directories": {
+      "output": "dist-exe",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "node_modules/**",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**",
+      "!node_modules/app-builder-lib/**",
+      "!node_modules/app-builder-bin/**",
+      "!node_modules/electron-builder-squirrel-windows/**",
+      "!node_modules/dmg-builder/**",
+      "!node_modules/dmg-license/**",
+      "!node_modules/7zip-bin/**",
+      "!node_modules/sharp/**",
+      "!node_modules/@img/**",
+      "!node_modules/png-to-ico/**",
+      "!node_modules/.bin/**"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "vishal007-hacker",
+      "repo": "Samwin-Personal-Assistant"
+    },
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!node_modules/.cache",
+          "!node_modules/nodemon/**",
+          "!node_modules/.bin/nodemon*",
+          "!session-samwin/**"
+        ]
+      },
+      {
+        "from": "../client/dist",
+        "to": "client/dist"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Samwin Infotech"
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

@@ -3,6 +3,7 @@ node_modules/
 uploads/*
 !uploads/.gitkeep
 dist/
+electron/dist-exe/
 .DS_Store
 
 # Local-only files (do not push)

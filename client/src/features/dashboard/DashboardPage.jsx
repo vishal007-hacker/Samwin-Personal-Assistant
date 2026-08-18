@@ -27,6 +27,8 @@ import {
   BookOpen,
   Wallet,
   Sparkles,
+  Calendar,
+  ShoppingCart,
 } from 'lucide-react';
 import api from '../../lib/axios';
 import {
@@ -286,9 +288,48 @@ function openWhatsApp(item) {
   window.open(link, '_blank');
 }
 
+// ─── Period Range Helper ────────────────────────────────────────────────────
+
+const toISODate = (d) => {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().split('T')[0];
+};
+
+const PERIOD_OPTIONS = [
+  { value: 'today', label: 'Today Report' },
+  { value: 'week', label: 'Weekly Report' },
+  { value: 'month', label: 'Monthly Report' },
+  { value: 'custom', label: 'Customized Date Report' },
+];
+
+function getPeriodRange(period, customFrom, customTo) {
+  const now = new Date();
+  if (period === 'week') {
+    const day = now.getDay(); // 0 = Sunday
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    return { from: toISODate(monday), to: toISODate(now), label: 'This Week' };
+  }
+  if (period === 'month') {
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: toISODate(first), to: toISODate(now), label: 'This Month' };
+  }
+  if (period === 'custom') {
+    return { from: customFrom, to: customTo, label: 'Selected Period' };
+  }
+  const today = toISODate(now);
+  return { from: today, to: today, label: 'Today' };
+}
+
 // ─── Dashboard Page ─────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const todayStr = toISODate(new Date());
+  const [period, setPeriod] = useState('today');
+  const [customRange, setCustomRange] = useState({ from: todayStr, to: todayStr });
+  const { from: periodFrom, to: periodTo, label: periodLabel } = getPeriodRange(period, customRange.from, customRange.to);
+
   const [paymentModal, setPaymentModal] = useState({ open: false, payment: null });
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [backingUp, setBackingUp] = useState(null); // 'data' | 'full' | null
@@ -430,8 +471,8 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: salesSummaryData, isLoading: salesLoading } = useSalesSummary({});
-  const { data: expenseSummaryData } = useExpenseSummary({});
+  const { data: salesSummaryData, isLoading: salesLoading } = useSalesSummary({ from: periodFrom, to: periodTo });
+  const { data: expenseSummaryData, isLoading: expenseLoading } = useExpenseSummary({ from: periodFrom, to: periodTo });
   const { data: customRemindersData, isLoading: customRemindersLoading } = useCustomReminders('true');
 
   // Credit overdue + upcoming
@@ -451,7 +492,10 @@ export default function DashboardPage() {
   const vehicleExpiring = vehicleExpiringData?.data || [];
   const customReminders = customRemindersData?.data || [];
   const salesSummary = salesSummaryData?.data || {};
-  const totalExpenses = expenseSummaryData?.data?.total || 0;
+  const periodIncome = salesSummary.total || 0;
+  const periodSaleCount = salesSummary.count || 0;
+  const periodExpense = expenseSummaryData?.data?.total || 0;
+  const periodProfit = periodIncome - periodExpense;
   const creditOverdue = creditOverdueData?.data || [];
   // Upcoming = open credits due in next 30 days (not overdue)
   const now = new Date();
@@ -565,8 +609,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── Period Selector ── */}
+      <div className="flex flex-wrap items-end gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Report Period</label>
+          <div className="relative">
+            <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {PERIOD_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {period === 'custom' && (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+              <input
+                type="date"
+                value={customRange.from}
+                max={customRange.to}
+                onChange={(e) => setCustomRange((prev) => ({ ...prev, from: e.target.value }))}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+              <input
+                type="date"
+                value={customRange.to}
+                min={customRange.from}
+                max={todayStr}
+                onChange={(e) => setCustomRange((prev) => ({ ...prev, to: e.target.value }))}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </>
+        )}
+      </div>
+
       {/* ── Stat Cards (Sales Dashboard) ── */}
-      {salesLoading ? (
+      {salesLoading || expenseLoading ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
         </div>
@@ -578,21 +666,20 @@ export default function DashboardPage() {
                 <IndianRupee className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Today's Income</p>
-                <p className="text-2xl font-bold text-green-700">{formatCurrency(salesSummary.todayIncome || 0)}</p>
-                <p className="text-xs text-gray-400">{salesSummary.todayCount || 0} sales today</p>
+                <p className="text-sm font-medium text-gray-600">{periodLabel} Income</p>
+                <p className="text-2xl font-bold text-green-700">{formatCurrency(periodIncome)}</p>
               </div>
             </div>
           </div>
           <div className="rounded-lg bg-blue-50 p-5">
             <div className="flex items-center gap-4">
               <div className="rounded-lg bg-blue-100 p-3">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+                <ShoppingCart className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Sales</p>
-                <p className="text-2xl font-bold text-blue-700">{formatCurrency(salesSummary.total || 0)}</p>
-                <p className="text-xs text-gray-400">{salesSummary.count || 0} transactions</p>
+                <p className="text-sm font-medium text-gray-600">Total Sale</p>
+                <p className="text-2xl font-bold text-blue-700">{periodSaleCount}</p>
+                <p className="text-xs text-gray-400">transactions</p>
               </div>
             </div>
           </div>
@@ -602,26 +689,24 @@ export default function DashboardPage() {
                 <Receipt className="h-6 w-6 text-red-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-                <p className="text-2xl font-bold text-red-700">{formatCurrency(totalExpenses)}</p>
-                <p className="text-xs text-gray-400">All time expenses</p>
+                <p className="text-sm font-medium text-gray-600">{periodLabel} Expense</p>
+                <p className="text-2xl font-bold text-red-700">{formatCurrency(periodExpense)}</p>
               </div>
             </div>
           </div>
           <div className="rounded-lg bg-purple-50 p-5">
             <div className="flex items-center gap-4">
               <div className="rounded-lg bg-purple-100 p-3">
-                {(salesSummary.total || 0) - totalExpenses >= 0
+                {periodProfit >= 0
                   ? <TrendingUp className="h-6 w-6 text-purple-600" />
                   : <TrendingDown className="h-6 w-6 text-red-600" />
                 }
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Net Profit / Loss</p>
-                <p className={`text-2xl font-bold ${(salesSummary.total || 0) - totalExpenses >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
-                  {formatCurrency((salesSummary.total || 0) - totalExpenses)}
+                <p className="text-sm font-medium text-gray-600">{periodLabel} Profit</p>
+                <p className={`text-2xl font-bold ${periodProfit >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
+                  {formatCurrency(periodProfit)}
                 </p>
-                <p className="text-xs text-gray-400">Sales - Expenses</p>
               </div>
             </div>
           </div>
