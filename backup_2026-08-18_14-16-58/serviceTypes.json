@@ -1,0 +1,26 @@
+[
+  {
+    "_id": "6a8401c124d6a5d7db9fd7c9",
+    "name": "new_installation",
+    "isDefault": true,
+    "__v": 0,
+    "createdAt": "2026-08-18T06:54:57.168Z",
+    "updatedAt": "2026-08-18T06:54:57.168Z"
+  },
+  {
+    "_id": "6a8401c124d6a5d7db9fd7ca",
+    "name": "addon_works",
+    "isDefault": true,
+    "__v": 0,
+    "createdAt": "2026-08-18T06:54:57.168Z",
+    "updatedAt": "2026-08-18T06:54:57.168Z"
+  },
+  {
+    "_id": "6a8401c124d6a5d7db9fd7cb",
+    "name": "service",
+    "isDefault": true,
+    "__v": 0,
+    "createdAt": "2026-08-18T06:54:57.168Z",
+    "updatedAt": "2026-08-18T06:54:57.168Z"
+  }
+]

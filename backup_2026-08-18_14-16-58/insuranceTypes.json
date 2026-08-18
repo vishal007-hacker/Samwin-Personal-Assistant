@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "69abd33b06132b7759b2bad5",
+    "name": "TP",
+    "createdAt": "2026-03-07T07:26:51.703Z",
+    "updatedAt": "2026-03-07T07:26:51.703Z",
+    "__v": 0
+  },
+  {
+    "_id": "69abd33b06132b7759b2bad6",
+    "name": "Comprehensive",
+    "createdAt": "2026-03-07T07:26:51.792Z",
+    "updatedAt": "2026-03-07T07:26:51.792Z",
+    "__v": 0
+  },
+  {
+    "_id": "69abd33b06132b7759b2bad7",
+    "name": "Private Car",
+    "createdAt": "2026-03-07T07:26:51.796Z",
+    "updatedAt": "2026-03-07T07:26:51.796Z",
+    "__v": 0
+  },
+  {
+    "_id": "69abd33b06132b7759b2bad8",
+    "name": "Commercial Vehicle",
+    "createdAt": "2026-03-07T07:26:51.799Z",
+    "updatedAt": "2026-03-07T07:26:51.799Z",
+    "__v": 0
+  },
+  {
+    "_id": "69abd632105c5e5ed607c042",
+    "name": "Car",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-07T07:39:30.941Z",
+    "updatedAt": "2026-03-07T07:39:30.941Z",
+    "__v": 0
+  }
+]
