@@ -1,0 +1,156 @@
+[
+  {
+    "_id": "69fdc8033e8383ee948a7f17",
+    "section": "recharge",
+    "name": "Airtel",
+    "balance": 723,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.536Z",
+    "updatedAt": "2026-05-13T16:23:34.739Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f18",
+    "section": "recharge",
+    "name": "VI",
+    "balance": 312,
+    "order": 2,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-08T16:20:20.584Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f19",
+    "section": "recharge",
+    "name": "Jio",
+    "balance": 1207,
+    "order": 3,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-13T16:24:01.709Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1a",
+    "section": "recharge",
+    "name": "BSNL",
+    "balance": 0,
+    "order": 4,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-08T11:24:51.538Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1b",
+    "section": "recharge",
+    "name": "Multi RC",
+    "balance": 1936,
+    "order": 5,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-13T16:23:50.831Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1c",
+    "section": "recharge",
+    "name": "Available Cash",
+    "balance": 14250,
+    "order": 6,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.538Z",
+    "updatedAt": "2026-05-13T16:24:40.119Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f1f",
+    "section": "banking",
+    "name": "Union",
+    "balance": 9212,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.562Z",
+    "updatedAt": "2026-05-13T16:24:12.902Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f20",
+    "section": "banking",
+    "name": "KVB",
+    "balance": 18793,
+    "order": 2,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.562Z",
+    "updatedAt": "2026-05-13T16:24:24.446Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f21",
+    "section": "banking",
+    "name": "Available Cash",
+    "balance": 0,
+    "order": 3,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.562Z",
+    "updatedAt": "2026-05-08T16:23:11.607Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f24",
+    "section": "aeps",
+    "name": "Airtel",
+    "balance": 10095,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-13T16:25:02.389Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f25",
+    "section": "aeps",
+    "name": "Relipay",
+    "balance": 6590,
+    "order": 2,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-13T16:25:12.933Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f26",
+    "section": "aeps",
+    "name": "Digipay",
+    "balance": 0,
+    "order": 3,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-08T11:24:51.569Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f27",
+    "section": "aeps",
+    "name": "Available Cash",
+    "balance": 0,
+    "order": 4,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.569Z",
+    "updatedAt": "2026-05-08T11:24:51.569Z",
+    "__v": 0
+  },
+  {
+    "_id": "69fdc8033e8383ee948a7f2a",
+    "section": "cash",
+    "name": "Total Cash on Hand",
+    "balance": 0,
+    "order": 1,
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-05-08T11:24:51.576Z",
+    "updatedAt": "2026-05-08T16:23:37.230Z",
+    "__v": 0
+  }
+]
