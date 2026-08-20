@@ -22,6 +22,7 @@ import {
   Hammer,
   Gift,
   Image as ImageIcon,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 
@@ -204,6 +205,22 @@ export default function Sidebar({ collapsed, onClose }) {
               </p>
             </div>
           </div>
+          {user?.role === 'admin' && (
+            <NavLink
+              to="/settings"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg mb-1 transition-colors ${
+                  isActive
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`
+              }
+            >
+              <Settings className="h-4 w-4" />
+              <span>Admin Settings</span>
+            </NavLink>
+          )}
           <button
             onClick={logout}
             className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"

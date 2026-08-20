@@ -36,6 +36,7 @@ import MaintenancePage from './features/maintenance/MaintenancePage';
 import DeviceServicePage from './features/device-service/DeviceServicePage';
 import LuckyDrawPage from './features/lucky-draw/LuckyDrawPage';
 import PostersPage from './features/posters/PostersPage';
+import SettingsPage from './features/settings/SettingsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
       { path: 'device-service', element: <DeviceServicePage /> },
       { path: 'lucky-draw', element: <LuckyDrawPage /> },
       { path: 'posters', element: <PostersPage /> },
+      { path: 'settings', element: <SettingsPage /> },
     ],
   },
 ]);

@@ -71,6 +71,7 @@ async function init() {
     }),
     puppeteer: {
       headless: true,
+      executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

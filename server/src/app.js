@@ -58,6 +58,8 @@ app.use('/api/device-service', require('./routes/deviceServiceRoutes'));
 app.use('/api/lucky-draw', require('./routes/luckyDrawRoutes'));
 app.use('/api/service-types', require('./routes/serviceTypeRoutes'));
 app.use('/api/posters', require('./routes/posterRoutes'));
+app.use('/api/system', require('./routes/systemRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

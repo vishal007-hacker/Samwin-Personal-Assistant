@@ -4,6 +4,8 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAuth } from '../../features/auth/AuthContext';
 import ReminderPopup from '../../features/custom-reminders/ReminderPopup';
+import UpdateChecker from '../../features/settings/UpdateChecker';
+import AIChatWidget from '../../features/ai-assistant/AIChatWidget';
 
 export default function AppLayout() {
   const { user, loading } = useAuth();
@@ -39,6 +41,12 @@ export default function AppLayout() {
 
       {/* Global reminder popup — checks every 30s for due reminders */}
       <ReminderPopup />
+      
+      {/* Background system update checker */}
+      <UpdateChecker />
+
+      {/* Global AI Chat Widget */}
+      <AIChatWidget />
     </div>
   );
 }
