@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "69c3f91e28cbbd54288c8048",
+    "type": "receipt",
+    "number": "RCT-0001",
+    "sequenceNumber": 1,
+    "date": "2026-03-25T00:00:00.000Z",
+    "customer": {
+      "name": "Samwin",
+      "address": "Sambavarvadakarai",
+      "phone": "9944514911",
+      "gst": ""
+    },
+    "showGst": false,
+    "items": [
+      {
+        "description": "Printouts",
+        "hsn": "",
+        "quantity": 1,
+        "unit": "Nos",
+        "price": 10,
+        "taxableValue": 10,
+        "_id": "69c3f91e28cbbd54288c8049"
+      }
+    ],
+    "subtotal": 10,
+    "cgstRate": 0,
+    "sgstRate": 0,
+    "cgstAmount": 0,
+    "sgstAmount": 0,
+    "totalAmount": 10,
+    "notes": "",
+    "createdBy": "69ab0582aac61c8defe62715",
+    "createdAt": "2026-03-25T15:02:54.012Z",
+    "updatedAt": "2026-03-25T15:02:54.012Z",
+    "__v": 0
+  }
+]

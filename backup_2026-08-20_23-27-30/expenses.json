@@ -1,0 +1,15 @@
+[
+  {
+    "_id": "69ce665d7989df5f0a875b1b",
+    "title": "Catridge and Tonner",
+    "amount": 1250,
+    "category": "Konicka Machine",
+    "date": "2026-02-02T00:00:00.000Z",
+    "paymentMethod": "cash",
+    "notes": "274000 copies",
+    "createdBy": "69ada0a27f3f2887455cf0db",
+    "createdAt": "2026-04-02T12:51:41.243Z",
+    "updatedAt": "2026-04-02T13:03:41.740Z",
+    "__v": 0
+  }
+]
