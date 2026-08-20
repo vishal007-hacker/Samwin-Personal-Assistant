@@ -1,0 +1,16 @@
+[
+  {
+    "_id": "69ce662e7989df5f0a875b0b",
+    "name": "Konicka Machine",
+    "createdAt": "2026-04-02T12:50:54.621Z",
+    "updatedAt": "2026-04-02T12:50:54.621Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ce663b7989df5f0a875b12",
+    "name": "Epson Machine",
+    "createdAt": "2026-04-02T12:51:07.584Z",
+    "updatedAt": "2026-04-02T12:51:07.584Z",
+    "__v": 0
+  }
+]
