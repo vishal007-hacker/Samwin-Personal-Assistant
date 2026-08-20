@@ -72,7 +72,10 @@ export default function AIChatWidget() {
           } else {
             setMessages((prev) => {
               const newMsgs = [...prev];
-              newMsgs[newMsgs.length - 1].content += chunk;
+              newMsgs[newMsgs.length - 1] = {
+                ...newMsgs[newMsgs.length - 1],
+                content: newMsgs[newMsgs.length - 1].content + chunk
+              };
               return newMsgs;
             });
           }

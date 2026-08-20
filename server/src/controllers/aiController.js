@@ -70,20 +70,33 @@ Answer the user's questions clearly, concisely, and professionally. Use the data
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
 
-    for await (const chunk of ollamaResponse.body) {
-      const chunkText = chunk.toString();
-      const lines = chunkText.split('\n').filter(Boolean);
+    let buffer = '';
+    
+    const reader = ollamaResponse.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      // The last line might be incomplete, keep it in the buffer
+      buffer = lines.pop(); 
+
       for (const line of lines) {
+        if (!line.trim()) continue;
         try {
           const json = JSON.parse(line);
           if (json.message?.content) {
             res.write(json.message.content);
           }
         } catch(e) {
-          // ignore parsing errors for partial lines
+          console.error('[AI] Stream JSON parse error:', e.message);
         }
       }
     }
+    
     res.end();
   } catch (error) {
     console.error('[AI] Chat error:', error.message);
