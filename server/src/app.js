@@ -68,7 +68,15 @@ app.get('/api/health', (req, res) => {
 
 // Serve React build in production
 const clientBuild = path.join(__dirname, '../../client/dist');
-app.use(express.static(clientBuild));
+app.use(express.static(clientBuild, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else if (filePath.includes('/assets/')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   res.sendFile(path.join(clientBuild, 'index.html'));

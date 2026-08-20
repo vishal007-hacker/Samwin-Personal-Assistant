@@ -13,7 +13,7 @@ export default function UpdateChecker() {
 
   useEffect(() => {
     // Only admins should check for updates
-    if (user?.role !== 'admin') return;
+    if (user?.role?.toLowerCase() !== 'admin') return;
 
     let toastId = null;
 

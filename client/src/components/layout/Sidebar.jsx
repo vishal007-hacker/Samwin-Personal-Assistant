@@ -205,7 +205,7 @@ export default function Sidebar({ collapsed, onClose }) {
               </p>
             </div>
           </div>
-          {user?.role === 'admin' && (
+          {user?.role?.toLowerCase() === 'admin' && (
             <NavLink
               to="/settings"
               onClick={onClose}

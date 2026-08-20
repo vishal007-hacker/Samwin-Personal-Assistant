@@ -21,7 +21,7 @@ export default function AIChatWidget() {
   }, [messages, isOpen, loading]);
 
   // Only show to admins
-  if (user?.role !== 'admin') {
+  if (user?.role?.toLowerCase() !== 'admin') {
     return null;
   }
 

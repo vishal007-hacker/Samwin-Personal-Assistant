@@ -12,7 +12,7 @@ export default function SettingsPage() {
   const [applying, setApplying] = useState(false);
   const [updateStatus, setUpdateStatus] = useState(null); // null | { available: boolean, commits: number }
 
-  if (user?.role !== 'admin') {
+  if (user?.role?.toLowerCase() !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 
