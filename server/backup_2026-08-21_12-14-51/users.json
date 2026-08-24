@@ -1,0 +1,14 @@
+[
+  {
+    "id": "cmt2kuyo70000jkw2ivlwu9l3",
+    "name": "Admin",
+    "email": "admin",
+    "password": "$2a$12$WOWLA7swTVsjXlOuB1E6oOZtKlX/mkDlR8EocF9VG.o3AbeuJKgyi",
+    "role": "admin",
+    "phone": "9999999999",
+    "isActive": true,
+    "pushSubscription": null,
+    "createdAt": "2026-08-21T06:37:47.144Z",
+    "updatedAt": "2026-08-21T06:37:47.144Z"
+  }
+]
