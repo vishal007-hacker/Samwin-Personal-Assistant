@@ -2,8 +2,8 @@ const Joi = require('joi');
 
 const createPolicy = Joi.object({
   policyNumber: Joi.string().required().trim(),
-  customer: Joi.string().required().hex().length(24),
-  scheme: Joi.string().required().hex().length(24),
+  customer: Joi.string().required().min(1),
+  scheme: Joi.string().required().min(1),
   startDate: Joi.date().required(),
   maturityDate: Joi.date().required().greater(Joi.ref('startDate')),
   premiumAmount: Joi.number().required().min(1),

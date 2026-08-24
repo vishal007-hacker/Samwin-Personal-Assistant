@@ -11,16 +11,15 @@ export default function SettingsPage() {
   const [checking, setChecking] = useState(false);
   const [applying, setApplying] = useState(false);
   const [updateStatus, setUpdateStatus] = useState(null); // null | { available: boolean, commits: number }
-
-  if (user?.role?.toLowerCase() !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   const [backingUp, setBackingUp] = useState(null); // 'data' | 'full' | null
   const [restoreFile, setRestoreFile] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const [gitPushing, setGitPushing] = useState(false);
   const queryClient = useQueryClient();
+
+  if (user?.role?.toLowerCase() !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleGitPush = async () => {
     if (!confirm('Export the database and push the new backup to GitHub?')) return;
@@ -130,13 +129,16 @@ export default function SettingsPage() {
       setChecking(true);
       setUpdateStatus(null);
       const res = await api.get('/system/check-update');
-      
+
       setUpdateStatus({
         available: res.data.updateAvailable,
-        commits: res.data.commitsBehind
+        commits: res.data.commitsBehind,
+        gitAvailable: res.data.gitAvailable !== false,
       });
-      
-      if (res.data.updateAvailable) {
+
+      if (res.data.gitAvailable === false) {
+        toast(res.data.message || 'Not available in the packaged desktop app.', { icon: 'ℹ️' });
+      } else if (res.data.updateAvailable) {
         toast.success(`Update available! You are ${res.data.commitsBehind} commit(s) behind.`);
       } else {
         toast.success('Your system is up to date.');
@@ -195,7 +197,12 @@ export default function SettingsPage() {
             
             {updateStatus && (
               <div className="flex items-center gap-2">
-                {updateStatus.available ? (
+                {!updateStatus.gitAvailable ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                    <span className="h-2 w-2 rounded-full bg-gray-400"></span>
+                    Not applicable — this is the packaged desktop app (updates via GitHub Releases)
+                  </span>
+                ) : updateStatus.available ? (
                   <>
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800">
                       <span className="h-2 w-2 rounded-full bg-amber-500"></span>

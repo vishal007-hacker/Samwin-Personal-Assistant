@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const prisma = require('../config/prisma');
 const { jwtSecret } = require('../config/env');
 
 const auth = async (req, res, next) => {
@@ -11,11 +11,15 @@ const auth = async (req, res, next) => {
 
     const token = header.split(' ')[1];
     const decoded = jwt.verify(token, jwtSecret);
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
 
     if (!user || !user.isActive) {
       return res.status(401).json({ success: false, message: 'User not found or inactive' });
     }
+
+    // Never expose the password hash / push subscription on the request user.
+    delete user.password;
+    delete user.pushSubscription;
 
     req.user = user;
     next();

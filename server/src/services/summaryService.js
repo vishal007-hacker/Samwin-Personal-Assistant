@@ -1,4 +1,4 @@
-// Template-based summary builder. NO AI/LLM — pure MongoDB aggregations + string
+// Template-based summary builder. NO AI/LLM — pure Prisma queries + string
 // formatting. Produces audience-specific WhatsApp summaries:
 //   - owner:    full business stats (sales, expenses, balances, alerts)
 //   - worker:   per-employee task list (attendance, maintenance, pending services)
@@ -7,17 +7,7 @@
 // Each builder returns { recipients: [{ phone, name, message }], skipped: [...] }
 // so the broadcast endpoint just sends them through the bot.
 
-const User = require('../models/User');
-const Customer = require('../models/Customer');
-const Employee = require('../models/Employee');
-const Attendance = require('../models/Attendance');
-const Sale = require('../models/Sale');
-const Expense = require('../models/Expense');
-const Account = require('../models/Account');
-const Credit = require('../models/Credit');
-const DeviceService = require('../models/DeviceService');
-const VehicleInsurance = require('../models/VehicleInsurance');
-const MaintenanceProduct = require('../models/MaintenanceProduct');
+const prisma = require('../config/prisma');
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '-';
@@ -48,7 +38,8 @@ async function buildOwnerSummary({ ownerPhones } = {}) {
       return { recipients, skipped: [{ reason: 'No valid phone numbers provided' }] };
     }
   } else {
-    owners = await User.find({ role: 'admin', isActive: true, phone: { $ne: '', $exists: true } });
+    owners = await prisma.user.findMany({ where: { role: 'admin', isActive: true } });
+    owners = owners.filter((u) => u.phone && String(u.phone).replace(/\D/g, '').length >= 7);
     if (owners.length === 0) {
       return { recipients, skipped: [{ reason: 'No admin user with a phone number found. Provide phones manually.' }] };
     }
@@ -59,24 +50,32 @@ async function buildOwnerSummary({ ownerPhones } = {}) {
   const thirtyDays = new Date(); thirtyDays.setDate(thirtyDays.getDate() + 30);
 
   const [salesAgg, expenseAgg, accounts, openCredits, pendingDevices, expiringInsurance] = await Promise.all([
-    Sale.aggregate([
-      { $match: { date: { $gte: from, $lte: to } } },
-      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
-    ]),
-    Expense.aggregate([
-      { $match: { date: { $gte: from, $lte: to } } },
-      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
-    ]),
-    Account.find({}),
-    Credit.find({ status: 'open', dueDate: { $lte: sevenDays } }).populate('customer', 'name'),
-    DeviceService.find({ status: { $in: ['pending', 'ready'] } }).limit(20),
-    VehicleInsurance.find({ policyExpiryDate: { $lte: thirtyDays }, status: { $ne: 'renewed' } }).limit(20),
+    prisma.sale.aggregate({
+      where: { date: { gte: from, lte: to } },
+      _sum: { amount: true },
+      _count: true,
+    }),
+    prisma.expense.aggregate({
+      where: { date: { gte: from, lte: to } },
+      _sum: { amount: true },
+      _count: true,
+    }),
+    prisma.account.findMany({}),
+    prisma.credit.findMany({
+      where: { status: 'open', dueDate: { lte: sevenDays } },
+      include: { customer: { select: { id: true, name: true } } },
+    }),
+    prisma.deviceService.findMany({ where: { status: { in: ['pending', 'ready'] } }, take: 20 }),
+    prisma.vehicleInsurance.findMany({
+      where: { policyExpiryDate: { lte: thirtyDays }, status: { not: 'renewed' } },
+      take: 20,
+    }),
   ]);
 
-  const salesTotal = salesAgg[0]?.total || 0;
-  const salesCount = salesAgg[0]?.count || 0;
-  const expTotal = expenseAgg[0]?.total || 0;
-  const expCount = expenseAgg[0]?.count || 0;
+  const salesTotal = salesAgg._sum.amount || 0;
+  const salesCount = salesAgg._count || 0;
+  const expTotal = expenseAgg._sum.amount || 0;
+  const expCount = expenseAgg._count || 0;
   const net = salesTotal - expTotal;
 
   const sums = { recharge: 0, banking: 0, aeps: 0, cash: 0 };
@@ -128,40 +127,40 @@ async function buildOwnerSummary({ ownerPhones } = {}) {
 
   return { recipients, skipped };
 }
-
 // ── WORKER summary ──────────────────────────────────────────────────────────
 
 async function buildWorkerSummary() {
   const recipients = [];
   const skipped = [];
 
-  const employees = await Employee.find({ isActive: true, phone: { $ne: '', $exists: true } });
-  if (employees.length === 0) {
+  const employees = await prisma.employee.findMany({ where: { isActive: true } });
+  const filteredEmps = employees.filter((e) => e.phone && String(e.phone).replace(/\D/g, '').length >= 7);
+  if (filteredEmps.length === 0) {
     return { recipients, skipped: [{ reason: 'No active employees with phone numbers' }] };
   }
 
   // Today's attendance for all employees
   const { from, to } = todayRange();
-  const todayAttendance = await Attendance.find({ date: { $gte: from, $lte: to } });
+  const todayAttendance = await prisma.attendance.findMany({ where: { date: { gte: from, lte: to } } });
   const attendanceByEmp = {};
-  for (const a of todayAttendance) attendanceByEmp[String(a.employee)] = a;
+  for (const a of todayAttendance) attendanceByEmp[String(a.employeeId)] = a;
 
   // Maintenance due in next 7 days (shared task list — everyone sees the same)
   const sevenDays = new Date(); sevenDays.setDate(sevenDays.getDate() + 7);
-  const upcomingMaintenance = await MaintenanceProduct.find({
-    isActive: true,
-    nextMaintenanceDate: { $lte: sevenDays },
-  }).limit(10);
+  const upcomingMaintenance = await prisma.maintenanceProduct.findMany({
+    where: { isActive: true, nextMaintenanceDate: { lte: sevenDays } },
+    take: 10,
+  });
 
   // Devices ready for delivery (likely the staff is involved)
-  const readyDevices = await DeviceService.find({ status: 'ready' }).limit(15);
+  const readyDevices = await prisma.deviceService.findMany({ where: { status: 'ready' }, take: 15 });
   // Devices still pending
-  const pendingDevices = await DeviceService.find({ status: 'pending' }).limit(15);
+  const pendingDevices = await prisma.deviceService.findMany({ where: { status: 'pending' }, take: 15 });
 
   const dateLabel = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
-  for (const emp of employees) {
-    const today = attendanceByEmp[String(emp._id)];
+  for (const emp of filteredEmps) {
+    const today = attendanceByEmp[String(emp.id)];
     const lines = [
       `Hi *${emp.name}*,`,
       ``,
@@ -201,40 +200,39 @@ async function buildWorkerSummary() {
 
   return { recipients, skipped };
 }
-
 // ── CUSTOMER summary ────────────────────────────────────────────────────────
 
 async function buildCustomerSummary() {
   const recipients = [];
   const skipped = [];
 
-  // Get customers with ANY actionable item (open credit / pending device / expiring insurance)
-  const customers = await Customer.find({ phone: { $ne: '', $exists: true } });
+  // Get customers with a phone number (bulk, then filter)
+  const allCustomers = await prisma.customer.findMany({});
+  const customers = allCustomers.filter((c) => c.phone && String(c.phone).replace(/\D/g, '').length >= 7);
   if (customers.length === 0) {
     return { recipients, skipped: [{ reason: 'No customers with phone numbers' }] };
   }
 
   const thirtyDays = new Date(); thirtyDays.setDate(thirtyDays.getDate() + 30);
 
-  // Bulk-fetch related data and index by customer id (cheaper than per-customer queries)
-  const customerIds = customers.map((c) => c._id);
+  const customerIds = customers.map((c) => c.id);
+  const customerPhones = customers.map((c) => c.phone).filter(Boolean);
+
+  // Bulk-fetch related data and index by customer id / phone
   const [openCredits, pendingDevices, expiringIns] = await Promise.all([
-    Credit.find({ customer: { $in: customerIds }, status: 'open' }),
+    prisma.credit.findMany({ where: { customerId: { in: customerIds }, status: 'open' } }),
     // device service uses customerPhone (not ref), so we filter on phone
-    DeviceService.find({
-      status: { $in: ['pending', 'ready'] },
-      customerPhone: { $in: customers.map((c) => c.phone).filter(Boolean) },
+    prisma.deviceService.findMany({
+      where: { status: { in: ['pending', 'ready'] }, customerPhone: { in: customerPhones } },
     }),
-    VehicleInsurance.find({
-      customer: { $in: customerIds },
-      policyExpiryDate: { $lte: thirtyDays },
-      status: { $ne: 'renewed' },
+    prisma.vehicleInsurance.findMany({
+      where: { customerId: { in: customerIds }, policyExpiryDate: { lte: thirtyDays }, status: { not: 'renewed' } },
     }),
   ]);
 
   const creditsByCustomer = {};
   for (const cr of openCredits) {
-    const k = String(cr.customer);
+    const k = String(cr.customerId);
     (creditsByCustomer[k] = creditsByCustomer[k] || []).push(cr);
   }
   const devicesByPhone = {};
@@ -244,14 +242,14 @@ async function buildCustomerSummary() {
   }
   const insByCustomer = {};
   for (const ins of expiringIns) {
-    const k = String(ins.customer);
+    const k = String(ins.customerId);
     (insByCustomer[k] = insByCustomer[k] || []).push(ins);
   }
 
   for (const c of customers) {
-    const myCredits = creditsByCustomer[String(c._id)] || [];
+    const myCredits = creditsByCustomer[String(c.id)] || [];
     const myDevices = devicesByPhone[String(c.phone || '').replace(/\D/g, '')] || [];
-    const myIns = insByCustomer[String(c._id)] || [];
+    const myIns = insByCustomer[String(c.id)] || [];
 
     // Skip customers with nothing relevant to report
     if (myCredits.length === 0 && myDevices.length === 0 && myIns.length === 0) {
@@ -299,7 +297,6 @@ async function buildCustomerSummary() {
 
   return { recipients, skipped };
 }
-
 // ── Dispatcher ──────────────────────────────────────────────────────────────
 
 async function buildSummary(audience, opts = {}) {

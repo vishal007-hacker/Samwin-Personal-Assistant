@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 const createAttendance = Joi.object({
-  employee: Joi.string().required().hex().length(24),
+  employee: Joi.string().required().min(1),
   date: Joi.date().required(),
   morningIn: Joi.string().allow('').trim(),
   afternoonOut: Joi.string().allow('').trim(),

@@ -1,7 +1,5 @@
 const cron = require('node-cron');
-const Policy = require('../models/Policy');
-const Credit = require('../models/Credit');
-const Notification = require('../models/Notification');
+const prisma = require('../config/prisma');
 
 const checkReminders = async () => {
   try {
@@ -12,10 +10,13 @@ const checkReminders = async () => {
     const sixtyDaysLater = new Date(now);
     sixtyDaysLater.setDate(sixtyDaysLater.getDate() + 35);
 
-    const policies = await Policy.find({
-      status: 'active',
-      nextPremiumDate: { $lte: sixtyDaysLater },
-    }).populate('customer', 'name phone');
+    const policies = await prisma.policy.findMany({
+      where: {
+        status: 'active',
+        nextPremiumDate: { lte: sixtyDaysLater },
+      },
+      include: { customer: { select: { id: true, name: true, phone: true } } },
+    });
 
     let upcomingCount = 0;
     let overdueCount = 0;
@@ -58,10 +59,12 @@ const checkReminders = async () => {
       const todayEnd = new Date(now);
       todayEnd.setHours(23, 59, 59, 999);
 
-      const existing = await Notification.findOne({
-        policy: policy._id,
-        type: reminderType,
-        createdAt: { $gte: todayStart, $lte: todayEnd },
+      const existing = await prisma.notification.findFirst({
+        where: {
+          policyId: policy.id,
+          type: reminderType,
+          createdAt: { gte: todayStart, lte: todayEnd },
+        },
       });
 
       if (existing) continue;
@@ -70,22 +73,27 @@ const checkReminders = async () => {
       const customerName = policy.customer?.name || 'Customer';
       const prefix = reminderType === 'overdue_alert' ? 'OVERDUE: ' : '';
 
-      await Notification.create({
-        type: reminderType,
-        policy: policy._id,
-        customer: policy.customer?._id,
-        message: `${prefix}Premium of Rs.${policy.premiumAmount} due on ${dueDateStr} for policy ${policy.policyNumber} - ${customerName}`,
-        scheduledFor: policy.nextPremiumDate,
+      await prisma.notification.create({
+        data: {
+          type: reminderType,
+          policyId: policy.id,
+          customerId: policy.customer?.id || null,
+          message: `${prefix}Premium of Rs.${policy.premiumAmount} due on ${dueDateStr} for policy ${policy.policyNumber} - ${customerName}`,
+          scheduledFor: policy.nextPremiumDate,
+        },
       });
     }
 
     console.log(`Reminder check complete: ${upcomingCount} upcoming, ${overdueCount} overdue`);
 
     // --- Credit overdue check ---
-    const overdueCredits = await Credit.find({
-      status: 'open',
-      dueDate: { $lt: now },
-    }).populate('customer', 'name phone');
+    const overdueCredits = await prisma.credit.findMany({
+      where: {
+        status: 'open',
+        dueDate: { lt: now },
+      },
+      include: { customer: { select: { id: true, name: true, phone: true } } },
+    });
 
     let creditOverdueCount = 0;
     for (const credit of overdueCredits) {
@@ -93,21 +101,25 @@ const checkReminders = async () => {
       const todayEnd = new Date(now);
       todayEnd.setHours(23, 59, 59, 999);
 
-      const existing = await Notification.findOne({
-        type: 'credit_overdue',
-        customer: credit.customer?._id,
-        message: { $regex: credit._id.toString() },
-        createdAt: { $gte: todayStart, $lte: todayEnd },
+      const existing = await prisma.notification.findFirst({
+        where: {
+          type: 'credit_overdue',
+          customerId: credit.customer?.id || null,
+          message: { contains: credit.id },
+          createdAt: { gte: todayStart, lte: todayEnd },
+        },
       });
 
       if (!existing) {
         const dueDateStr = credit.dueDate.toLocaleDateString('en-IN');
         const customerName = credit.customer?.name || 'Customer';
-        await Notification.create({
-          type: 'credit_overdue',
-          customer: credit.customer?._id,
-          message: `CREDIT OVERDUE: Rs.${credit.balanceAmount} from ${customerName} was due on ${dueDateStr} (Ref: ${credit._id})`,
-          scheduledFor: credit.dueDate,
+        await prisma.notification.create({
+          data: {
+            type: 'credit_overdue',
+            customerId: credit.customer?.id || null,
+            message: `CREDIT OVERDUE: Rs.${credit.balanceAmount} from ${customerName} was due on ${dueDateStr} (Ref: ${credit.id})`,
+            scheduledFor: credit.dueDate,
+          },
         });
         creditOverdueCount++;
       }

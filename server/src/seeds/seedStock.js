@@ -1,8 +1,6 @@
-const mongoose = require('mongoose');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
-const { mongoUri } = require('../config/env');
-const Stock = require('../models/Stock');
+const prisma = require('../config/prisma');
 
 // Data from PDF — purchase price = selling price - 500
 const mobiles = [
@@ -47,20 +45,21 @@ const mobiles = [
 
 async function seed() {
   try {
-    await mongoose.connect(mongoUri);
-    console.log('Connected to MongoDB');
+    await prisma.$connect();
+    console.log('Connected to PostgreSQL');
 
-    // Delete all existing mobile stock and sold items
-    const deleteResult = await Stock.deleteMany({ category: 'mobile' });
-    console.log(`Deleted ${deleteResult.deletedCount} existing mobile stock items`);
+    const deleteResult = await prisma.stock.deleteMany({ where: { category: 'mobile' } });
+    console.log(`Deleted ${deleteResult.count} existing mobile stock items`);
 
-    // Reset the counter for stock codes
-    const Counter = mongoose.model('Counter');
-    const maxCode = Math.max(...mobiles.map(m => m.uniqueCode));
-    await Counter.findByIdAndUpdate('stockCode', { seq: maxCode }, { upsert: true });
+    const maxCode = Math.max(...mobiles.map((m) => m.uniqueCode));
+    await prisma.counter.upsert({
+      where: { key: 'stockCode' },
+      update: { value: maxCode },
+      create: { key: 'stockCode', value: maxCode },
+    });
     console.log(`Counter set to ${maxCode}`);
 
-    // Insert new stock from PDF
+    // Insert new stock from PDF (skip duplicates gracefully)
     const docs = mobiles.map((m) => ({
       uniqueCode: m.uniqueCode,
       category: 'mobile',
@@ -76,19 +75,23 @@ async function seed() {
       status: 'in_stock',
     }));
 
-    // Use insertMany with ordered:false to skip duplicates
-    const result = await Stock.insertMany(docs, { ordered: false });
-    console.log(`Inserted ${result.length} mobile stock items`);
+    let inserted = 0;
+    for (const doc of docs) {
+      try {
+        await prisma.stock.create({ data: doc });
+        inserted += 1;
+      } catch (e) {
+        // duplicate or other row-level error — skip silently
+      }
+    }
+    console.log(`Inserted ${inserted} mobile stock items`);
 
-    await mongoose.disconnect();
+    await prisma.$disconnect();
     console.log('Done!');
     process.exit(0);
   } catch (err) {
-    if (err.insertedDocs) {
-      console.log(`Inserted ${err.insertedDocs.length} items (some may have been skipped due to duplicates)`);
-    } else {
-      console.error('Error:', err.message);
-    }
+    console.error('Error:', err.message);
+    await prisma.$disconnect().catch(() => {});
     process.exit(1);
   }
 }

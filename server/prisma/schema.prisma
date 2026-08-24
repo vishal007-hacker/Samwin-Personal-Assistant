@@ -1,0 +1,738 @@
+// Prisma schema for Samwin Infotech — PostgreSQL (replaces MongoDB/Mongoose).
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum Role {
+  admin
+  agent
+}
+
+enum SchemeType {
+  Life
+  Health
+  Vehicle
+  Property
+  Travel
+  Other
+}
+
+enum PolicyStatus {
+  active
+  matured
+  lapsed
+  surrendered
+  cancelled
+}
+
+enum PaymentPaymentMethod {
+  cash
+  cheque
+  upi
+  bank_transfer
+  online
+}
+
+enum CashPaymentMethod {
+  cash
+  upi
+  bank_transfer
+  card
+  other
+}
+
+enum VehicleServiceStatus {
+  active
+  expired
+  renewed
+}
+
+enum DeviceLockType {
+  none
+  pin
+  password
+  pattern
+  fingerprint
+  face
+  other
+}
+
+enum DeviceServiceStatus {
+  pending
+  ready
+  delivered
+  returned
+}
+
+enum CreditStatus {
+  open
+  closed
+}
+
+enum StockCategoryType {
+  mobile
+  phone_accessory
+  computer_accessory
+}
+
+enum StockStatus {
+  in_stock
+  sold
+}
+
+enum BillingType {
+  invoice
+  quotation
+  receipt
+}
+
+enum AccountSection {
+  recharge
+  banking
+  aeps
+  cash
+}
+
+// ── Models ───────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String   @id @default(cuid()) @map("_id")
+  name            String
+  email           String   @unique
+  password        String
+  role            Role     @default(agent)
+  phone           String?
+  isActive        Boolean  @default(true)
+  pushSubscription Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customersCreated           Customer[]           @relation("CustomerCreatedBy")
+  schemesCreated             Scheme[]             @relation("SchemeCreatedBy")
+  policiesCreated           Policy[]             @relation("PolicyCreatedBy")
+  paymentsRecorded          Payment[]            @relation("PaymentRecordedBy")
+  vehicleInsurancesCreated  VehicleInsurance[]   @relation("VehicleInsuranceCreatedBy")
+  insuranceTypesCreated     InsuranceType[]      @relation("InsuranceTypeCreatedBy")
+  servicesCreated           Service[]            @relation("ServiceCreatedBy")
+  serviceTypesCreated       ServiceType[]        @relation("ServiceTypeCreatedBy")
+  deviceServicesCreated     DeviceService[]      @relation("DeviceServiceCreatedBy")
+  deviceTypesCreated        DeviceType[]         @relation("DeviceTypeCreatedBy")
+  maintenanceRecordsCreated MaintenanceRecord[]  @relation("MaintenanceRecordCreatedBy")
+  maintenanceProductsCreated MaintenanceProduct[] @relation("MaintenanceProductCreatedBy")
+  creditsCreated            Credit[]             @relation("CreditCreatedBy")
+  stocksCreated             Stock[]              @relation("StockCreatedBy")
+  salesCreated              Sale[]               @relation("SaleCreatedBy")
+  expensesCreated           Expense[]            @relation("ExpenseCreatedBy")
+  billingsCreated           Billing[]            @relation("BillingCreatedBy")
+  accountsCreated           Account[]            @relation("AccountCreatedBy")
+  snapshotsCreated           AccountSnapshot[]   @relation("AccountSnapshotCreatedBy")
+  employeesCreated          Employee[]           @relation("EmployeeCreatedBy")
+  attendancesCreated         Attendance[]        @relation("AttendanceCreatedBy")
+  lmsCreated                LMS[]                @relation("LMSCreatedBy")
+  customRemindersCreated      CustomReminder[]   @relation("CustomReminderCreatedBy")
+  luckyDrawParticipantsCreated LuckyDrawParticipant[] @relation("LuckyDrawParticipantCreatedBy")
+  postersCreated             Poster[]            @relation("PosterCreatedBy")
+}
+
+model Counter {
+  key   String @id
+  value Int    @default(0)
+}
+model Customer {
+  id            String    @id @default(cuid()) @map("_id")
+  name          String
+  phone         String
+  email         String?
+  address       Json?
+  aadhaarNumber String?
+  panNumber     String?
+  dateOfBirth   DateTime?
+  nominees      Json?
+  referral      String?
+  notes         String?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  createdBy          User?                @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  policies           Policy[]
+  payments           Payment[]
+  vehicleInsurances  VehicleInsurance[]
+  services           Service[]
+  credits            Credit[]
+  notifications      Notification[]
+
+  @@index([phone])
+  @@index([panNumber])
+  @@index([createdById])
+}
+
+model Scheme {
+  id                   String     @id @default(cuid()) @map("_id")
+  name                 String
+  type                 SchemeType
+  company              String
+  description          String?
+  premiumFrequencies   String[]
+  minCoverageAmount    Float?
+  maxCoverageAmount    Float?
+  minMaturityPeriodYears Int?
+  maxMaturityPeriodYears Int?
+  minEntryAge          Int?
+  maxEntryAge          Int?
+  features             String[]
+  isActive             Boolean    @default(true)
+  createdById          String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  createdBy  User?   @relation("SchemeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  policies   Policy[]
+
+  @@index([type])
+  @@index([company])
+  @@index([createdById])
+}
+
+model Policy {
+  id                String       @id @default(cuid()) @map("_id")
+  policyNumber      String       @unique
+  customerId        String
+  schemeId          String
+  startDate         DateTime
+  maturityDate      DateTime
+  premiumAmount     Float
+  premiumFrequency  String // monthly | quarterly | half-yearly | yearly (hyphen values can't be Prisma enums)
+  sumAssured        Float
+  nominee           Json?
+  nextPremiumDate   DateTime?
+  status            PolicyStatus @default(active)
+  reminderSettings  Json?
+  documents         Json?
+  notes             String?
+  createdById       String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  customer       Customer         @relation(fields: [customerId], references: [id])
+  scheme         Scheme           @relation(fields: [schemeId], references: [id])
+  createdBy      User?            @relation("PolicyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  payments       Payment[]
+  notifications  Notification[]
+
+  @@index([customerId])
+  @@index([schemeId])
+  @@index([nextPremiumDate, status])
+  @@index([createdById])
+}
+
+model Payment {
+  id              String              @id @default(cuid()) @map("_id")
+  policyId        String
+  customerId      String
+  amount          Float
+  paymentDate     DateTime
+  premiumDueDate  DateTime?
+  paymentMethod   PaymentPaymentMethod @default(cash)
+  referenceNumber String?
+  notes           String?
+  recordedById    String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  policy      Policy    @relation(fields: [policyId], references: [id])
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  recordedBy  User?     @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([policyId])
+  @@index([customerId])
+  @@index([paymentDate])
+  @@index([recordedById])
+}
+
+model VehicleInsurance {
+  id                  String               @id @default(cuid()) @map("_id")
+  customerId          String
+  insuranceType       String
+  vehicleNumber       String?
+  vehicleBrand        String
+  model               String
+  yearOfManufacturing Int?
+  registrationDate    DateTime?
+  engineNumber        String?
+  chasisNumber        String?
+  policyCompany       String?
+  policyNumber        String
+  policyExpiryDate    DateTime
+  reminderStartDate  DateTime?
+  rcBookFile          String?
+  oldInsuranceFile    String?
+  status              VehicleServiceStatus @default(active)
+  notes               String?
+  createdById         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  createdBy  User?    @relation("VehicleInsuranceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([policyExpiryDate])
+  @@index([status])
+  @@index([createdById])
+}
+
+model InsuranceType {
+  id           String   @id @default(cuid()) @map("_id")
+  name         String   @unique
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy    User?    @relation("InsuranceTypeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+}
+model Service {
+  id             String   @id @default(cuid()) @map("_id")
+  date           DateTime @default(now())
+  customerId     String
+  typeOfWork     String
+  materialsUsed  String?
+  askingPrice    Float    @default(0)
+  receivedCash   Float    @default(0)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  createdBy  User?    @relation("ServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([date])
+  @@index([customerId])
+  @@index([typeOfWork])
+  @@index([createdById])
+}
+
+model ServiceType {
+  id           String    @id @default(cuid()) @map("_id")
+  name         String    @unique
+  isDefault    Boolean   @default(false)
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  createdBy    User?     @relation("ServiceTypeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+}
+
+model DeviceService {
+  id             String              @id @default(cuid()) @map("_id")
+  serialNo       String?
+  deviceType     String
+  lockType       DeviceLockType      @default(none)
+  lockValue      String?
+  problem        String?
+  date           DateTime            @default(now())
+  customerName   String
+  customerPhone  String?
+  status         DeviceServiceStatus @default(pending)
+  amount         Float               @default(0)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  createdBy  User? @relation("DeviceServiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([serialNo])
+  @@index([deviceType])
+  @@index([date])
+  @@index([customerPhone])
+  @@index([status])
+  @@index([createdById])
+}
+
+model DeviceType {
+  id           String   @id @default(cuid()) @map("_id")
+  name         String   @unique
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy    User?    @relation("DeviceTypeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+}
+
+model MaintenanceProduct {
+  id                  String    @id @default(cuid()) @map("_id")
+  name                String
+  category            String?
+  serialNumber        String?
+  location            String?
+  frequencyDays       Int       @default(30)
+  nextMaintenanceDate DateTime?
+  isActive            Boolean   @default(true)
+  notes               String?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  createdBy  User?               @relation("MaintenanceProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  records    MaintenanceRecord[]
+
+  @@index([nextMaintenanceDate])
+  @@index([isActive])
+  @@index([createdById])
+}
+
+model MaintenanceRecord {
+  id                   String   @id @default(cuid()) @map("_id")
+  productId            String
+  date                 DateTime @default(now())
+  workDone             String?
+  cost                 Float    @default(0)
+  servicePersonName    String?
+  servicePersonContact String?
+  nextDueDate          DateTime?
+  notes                String?
+  createdById          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  product    MaintenanceProduct @relation(fields: [productId], references: [id])
+  createdBy  User?              @relation("MaintenanceRecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([date])
+  @@index([createdById])
+}
+
+model Credit {
+  id             String       @id @default(cuid()) @map("_id")
+  customerId     String
+  reason         String
+  totalAmount    Float
+  balanceAmount  Float
+  dueDate        DateTime
+  status         CreditStatus @default(open)
+  transactions   Json
+  notes          String?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  customer    Customer @relation(fields: [customerId], references: [id])
+  createdBy   User?    @relation("CreditCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([status, dueDate])
+  @@index([createdById])
+}
+model Stock {
+  id             String            @id @default(cuid()) @map("_id")
+  uniqueCode     Int?              @unique
+  category       StockCategoryType @default(mobile)
+  brand          String
+  model          String
+  ram            String?
+  storage        String?
+  displaySize    String?
+  displayQuality String?
+  purchasePrice  Float
+  sellingPrice   Float
+  network        String?
+  color          String?
+  purchasedFrom  String?
+  status         StockStatus       @default(in_stock)
+  soldTo         Json?
+  soldAt         DateTime?
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  createdBy  User? @relation("StockCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([brand])
+  @@index([status])
+  @@index([createdById])
+}
+
+model Sale {
+  id             String            @id @default(cuid()) @map("_id")
+  categoryId     String
+  categoryName   String
+  quantity       Int               @default(1)
+  unitPrice      Float
+  amount         Float
+  paymentMethod  CashPaymentMethod @default(cash)
+  date           DateTime          @default(now())
+  customerName   String?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  category   SalesCategory @relation(fields: [categoryId], references: [id])
+  createdBy  User?        @relation("SaleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([date])
+  @@index([createdById])
+}
+
+model SalesCategory {
+  id         String   @id @default(cuid()) @map("_id")
+  name       String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sales  Sale[]
+}
+
+model Expense {
+  id             String            @id @default(cuid()) @map("_id")
+  title          String
+  amount         Float
+  category       String
+  date           DateTime          @default(now())
+  paymentMethod  CashPaymentMethod @default(cash)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  createdBy  User? @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([date])
+  @@index([createdById])
+}
+
+model ExpenseCategory {
+  id     String   @id @default(cuid()) @map("_id")
+  name   String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Billing {
+  id             String      @id @default(cuid()) @map("_id")
+  type           BillingType
+  number         String?     @unique
+  sequenceNumber Int?
+  date           DateTime    @default(now())
+  customer       Json
+  showGst        Boolean     @default(false)
+  items          Json
+  subtotal       Float       @default(0)
+  cgstRate       Float       @default(0)
+  sgstRate       Float       @default(0)
+  cgstAmount     Float       @default(0)
+  sgstAmount     Float       @default(0)
+  totalAmount    Float
+  notes          String?
+  createdById    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  createdBy  User? @relation("BillingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([date])
+  @@index([createdById])
+}
+model Account {
+  id           String         @id @default(cuid()) @map("_id")
+  section      AccountSection
+  name         String
+  balance      Float          @default(0)
+  order        Int            @default(0)
+  createdById  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  createdBy  User? @relation("AccountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([section, order])
+  @@index([createdById])
+}
+
+model AccountSnapshot {
+  id           String   @id @default(cuid()) @map("_id")
+  date         DateTime @unique
+  recharge     Float    @default(0)
+  banking      Float    @default(0)
+  aeps         Float    @default(0)
+  cash         Float    @default(0)
+  total        Float    @default(0)
+  details      Json?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy  User? @relation("AccountSnapshotCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+}
+
+model Employee {
+  id              String   @id @default(cuid()) @map("_id")
+  name            String
+  phone           String
+  email           String?
+  designation     String?
+  address         String?
+  aadhaarNumber   String?
+  dateOfJoining   DateTime?
+  salary          Float    @default(0)
+  defaultInTime   String?  @default("09:00") // HH:MM 24h
+  defaultOutTime  String?  @default("18:00") // HH:MM 24h
+  bankAccount     Json?
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy    User?         @relation("EmployeeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  attendances  Attendance[]
+
+  @@index([isActive])
+  @@index([createdById])
+}
+
+model Attendance {
+  id                String    @id @default(cuid()) @map("_id")
+  employeeId        String
+  date              DateTime
+  morningIn         String?
+  afternoonOut      String?
+  afterLunchIn      String?
+  nightOut          String?
+  workDetails       String?
+  location          String?
+  permissionHours   Float     @default(0)
+  permissionReason  String?
+  expenses          Float     @default(0)
+  expenseNotes      String?
+  status            String    @default("present") // present | absent | half-day | leave (hyphen => String)
+  notes             String?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  createdBy  User?    @relation("AttendanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([status])
+  @@index([createdById])
+}
+
+model LMS {
+  id          String   @id @default(cuid()) @map("_id")
+  title       String
+  link        String?
+  userId      String?
+  password    String?
+  message     String?
+  order       Int      @default(0)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy  User? @relation("LMSCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+}
+
+model CustomReminder {
+  id              String    @id @default(cuid()) @map("_id")
+  title           String
+  intervalMinutes Int
+  endDate         DateTime
+  nextTrigger     DateTime
+  isActive        Boolean   @default(true)
+  lastTriggered   DateTime?
+  triggerCount    Int       @default(0)
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdBy  User? @relation("CustomReminderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([isActive, nextTrigger])
+  @@index([createdById])
+}
+
+model Notification {
+  id            String    @id @default(cuid()) @map("_id")
+  type          String    // premium_reminder | overdue_alert | maturity_alert | credit_overdue | ...
+  policyId      String?
+  customerId    String?
+  message       String
+  channels      Json?
+  isRead        Boolean   @default(false)
+  scheduledFor  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  policy    Policy?   @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([isRead])
+  @@index([scheduledFor])
+  @@index([policyId])
+  @@index([customerId])
+}
+
+model LuckyDrawParticipant {
+  id              String    @id @default(cuid()) @map("_id")
+  serialNo        Int?      @unique
+  name            String
+  phone           String
+  purchaseDetails String?
+  notes           String?
+  isWinner        Boolean   @default(false)
+  drawnAt         DateTime?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdBy  User? @relation("LuckyDrawParticipantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([isWinner])
+  @@index([createdById])
+}
+
+model Poster {
+  id           String   @id @default(cuid()) @map("_id")
+  title        String?
+  bodyText     String
+  footer       String?
+  theme        String?  @default("sunset")
+  style        Json?
+  isFavorite   Boolean  @default(false)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy  User? @relation("PosterCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([isFavorite])
+  @@index([createdById])
+}

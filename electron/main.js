@@ -76,7 +76,7 @@ async function createWindow() {
   } catch (err) {
     dialog.showErrorBox(
       'Samwin Infotech — Startup Error',
-      `The local server did not start correctly.\n\n${err.message}\n\nMake sure MongoDB is installed and running, then restart the app.`
+      `The local server did not start correctly.\n\n${err.message}\n\nMake sure PostgreSQL is installed and running, then restart the app.`
     );
     app.quit();
   }

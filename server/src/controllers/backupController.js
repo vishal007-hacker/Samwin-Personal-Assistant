@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
 const archiver = require('archiver');
-const mongoose = require('mongoose');
+const prisma = require('../config/prisma');
 const { success, error } = require('../utils/responseHelper');
 
 function runGit(args, cwd) {
@@ -14,88 +14,87 @@ function runGit(args, cwd) {
   });
 }
 
-// All models with their collection name in the export
-const COLLECTIONS = [
-  { name: 'users', model: 'User' },
-  { name: 'customers', model: 'Customer' },
-  { name: 'schemes', model: 'Scheme' },
-  { name: 'policies', model: 'Policy' },
-  { name: 'payments', model: 'Payment' },
-  { name: 'credits', model: 'Credit' },
-  { name: 'notifications', model: 'Notification' },
-  { name: 'stocks', model: 'Stock' },
-  { name: 'expenses', model: 'Expense' },
-  { name: 'expenseCategories', model: 'ExpenseCategory' },
-  { name: 'sales', model: 'Sale' },
-  { name: 'salesCategories', model: 'SalesCategory' },
-  { name: 'vehicleInsurances', model: 'VehicleInsurance' },
-  { name: 'insuranceTypes', model: 'InsuranceType' },
-  { name: 'billings', model: 'Billing' },
-  { name: 'lms', model: 'LMS' },
-  { name: 'customReminders', model: 'CustomReminder' },
-  { name: 'employees', model: 'Employee' },
-  { name: 'attendances', model: 'Attendance' },
-  { name: 'services', model: 'Service' },
-  { name: 'accounts', model: 'Account' },
-  { name: 'accountSnapshots', model: 'AccountSnapshot' },
-  { name: 'maintenanceProducts', model: 'MaintenanceProduct' },
-  { name: 'maintenanceRecords', model: 'MaintenanceRecord' },
-  { name: 'deviceServices', model: 'DeviceService' },
+// All Prisma model delegates to export. Order is parent-first — restore does
+// a full delete pass in reverse (children before parents) then a full create
+// pass in this order, since a single interleaved pass can satisfy neither.
+const MODEL_MAP = [
+  { name: 'users', delegate: 'user' },
+  { name: 'deviceTypes', delegate: 'deviceType' },
+  { name: 'expenseCategories', delegate: 'expenseCategory' },
+  { name: 'insuranceTypes', delegate: 'insuranceType' },
+  { name: 'salesCategories', delegate: 'salesCategory' },
+  { name: 'serviceTypes', delegate: 'serviceType' },
+  { name: 'customers', delegate: 'customer' },
+  { name: 'schemes', delegate: 'scheme' },
+  { name: 'employees', delegate: 'employee' },
+  { name: 'maintenanceProducts', delegate: 'maintenanceProduct' },
+  { name: 'accounts', delegate: 'account' },
+  { name: 'lms', delegate: 'lMS' },
+  { name: 'customReminders', delegate: 'customReminder' },
+  { name: 'posters', delegate: 'poster' },
+  { name: 'luckyDrawParticipants', delegate: 'luckyDrawParticipant' },
+  { name: 'stocks', delegate: 'stock' },
+  { name: 'deviceServices', delegate: 'deviceService' },
+  { name: 'expenses', delegate: 'expense' },
+  { name: 'billings', delegate: 'billing' },
+  { name: 'accountSnapshots', delegate: 'accountSnapshot' },
+  { name: 'policies', delegate: 'policy' },
+  { name: 'vehicleInsurances', delegate: 'vehicleInsurance' },
+  { name: 'services', delegate: 'service' },
+  { name: 'credits', delegate: 'credit' },
+  { name: 'attendances', delegate: 'attendance' },
+  { name: 'maintenanceRecords', delegate: 'maintenanceRecord' },
+  { name: 'sales', delegate: 'sale' },
+  { name: 'payments', delegate: 'payment' },
+  { name: 'notifications', delegate: 'notification' },
 ];
 
-async function gatherData() {
-  // Lazy-require models so this controller works regardless of registration order
-  require('../models/User');
-  require('../models/Customer');
-  require('../models/Scheme');
-  require('../models/Policy');
-  require('../models/Payment');
-  require('../models/Credit');
-  require('../models/Notification');
-  require('../models/Stock');
-  require('../models/Expense');
-  require('../models/ExpenseCategory');
-  require('../models/Sale');
-  require('../models/SalesCategory');
-  require('../models/VehicleInsurance');
-  require('../models/InsuranceType');
-  require('../models/Billing');
-  require('../models/LMS');
-  require('../models/CustomReminder');
-  require('../models/Employee');
-  require('../models/Attendance');
-  require('../models/Service');
-  require('../models/Account');
-  require('../models/AccountSnapshot');
-  require('../models/MaintenanceProduct');
-  require('../models/MaintenanceRecord');
-  require('../models/DeviceService');
+// Convert a persisted row (Mongoose-style) into the Prisma field shape:
+// _id -> id, __v dropped, ref ObjectIds -> *Id scalars. Embedded object refs
+// (e.g. Billing.customer) are kept as-is (Json column).
+function toPrismaShape(doc) {
+  if (!doc || typeof doc !== 'object') return doc;
+  const {
+    _id, __v,
+    createdBy, recordedBy,
+    customer, policy, scheme, employee, product,
+    ...rest
+  } = doc;
+  const out = { ...rest };
+  if (_id) out.id = _id;
+  if (createdBy) out.createdById = createdBy;
+  if (recordedBy) out.recordedById = recordedBy;
+  if (typeof customer === 'string') out.customerId = customer;
+  else if (customer && typeof customer === 'object') out.customer = customer;
+  if (policy && typeof policy === 'string') out.policyId = policy;
+  if (scheme && typeof scheme === 'string') out.schemeId = scheme;
+  if (employee && typeof employee === 'string') out.employeeId = employee;
+  if (product && typeof product === 'string') out.productId = product;
+  return out;
+}
 
+function toCounterRow(doc) {
+  const key = doc.key || doc._id;
+  const value = doc.value ?? doc.seq ?? 0;
+  return { key: String(key), value };
+}
+
+async function gatherData() {
   const result = { exportedAt: new Date().toISOString(), collections: {} };
-  for (const { name, model } of COLLECTIONS) {
+  for (const { name, delegate } of MODEL_MAP) {
     try {
-      const Model = mongoose.model(model);
-      const docs = await Model.find({}).lean();
-      result.collections[name] = docs;
+      result.collections[name] = await prisma[delegate].findMany({});
     } catch (err) {
       result.collections[name] = { error: err.message };
     }
   }
-  // Counters (raw collections — not Mongoose models)
+  // Counters (single table in the new schema)
   try {
-    result.collections.counters = await mongoose.connection.db
-      .collection('counters')
-      .find({})
-      .toArray();
+    const counters = await prisma.counter.findMany({});
+    result.collections.counters = counters;
+    result.collections.billingCounters = counters.filter((c) => c.key.startsWith('billing_'));
   } catch {
     result.collections.counters = [];
-  }
-  try {
-    result.collections.billingCounters = await mongoose.connection.db
-      .collection('billingcounters')
-      .find({})
-      .toArray();
-  } catch {
     result.collections.billingCounters = [];
   }
   return result;
@@ -221,73 +220,59 @@ exports.restoreBackup = async (req, res, next) => {
       return error(res, 'Backup file does not contain collection data', 400);
     }
 
-    // Lazy-require all models so they're registered
-    require('../models/User');
-    require('../models/Customer');
-    require('../models/Scheme');
-    require('../models/Policy');
-    require('../models/Payment');
-    require('../models/Credit');
-    require('../models/Notification');
-    require('../models/Stock');
-    require('../models/Expense');
-    require('../models/ExpenseCategory');
-    require('../models/Sale');
-    require('../models/SalesCategory');
-    require('../models/VehicleInsurance');
-    require('../models/InsuranceType');
-    require('../models/Billing');
-    require('../models/LMS');
-    require('../models/CustomReminder');
-    require('../models/Employee');
-    require('../models/Attendance');
-    require('../models/Service');
-    require('../models/Account');
-    require('../models/AccountSnapshot');
-    require('../models/MaintenanceProduct');
-    require('../models/MaintenanceRecord');
-    require('../models/DeviceService');
-
     const result = { restored: {}, skipped: [], totalDocs: 0, errors: [] };
 
-    for (const { name, model } of COLLECTIONS) {
-      const docs = data[name];
-      if (!Array.isArray(docs)) {
-        result.skipped.push(name);
-        continue;
-      }
+    const toRestore = MODEL_MAP.filter(({ name }) => Array.isArray(data[name]));
+    for (const { name } of MODEL_MAP) {
+      if (!Array.isArray(data[name])) result.skipped.push(name);
+    }
+
+    // Pass 1: delete every targeted collection's current rows, children
+    // before parents (reverse of MODEL_MAP), so FK constraints never block.
+    for (const { name, delegate } of [...toRestore].reverse()) {
       try {
-        const Model = mongoose.model(model);
-        await Model.deleteMany({});
-        if (docs.length > 0) {
-          await Model.insertMany(docs, { ordered: false });
-        }
-        result.restored[name] = docs.length;
-        result.totalDocs += docs.length;
+        await prisma[delegate].deleteMany({});
       } catch (err) {
-        result.errors.push({ collection: name, message: err.message });
+        result.errors.push({ collection: name, message: `delete failed: ${err.message}` });
       }
     }
 
-    // Counters
-    if (Array.isArray(data.counters)) {
-      try {
-        const col = mongoose.connection.db.collection('counters');
-        await col.deleteMany({});
-        if (data.counters.length > 0) await col.insertMany(data.counters);
-        result.restored.counters = data.counters.length;
-      } catch (err) {
-        result.errors.push({ collection: 'counters', message: err.message });
+    // Pass 2: recreate every collection, parents before children.
+    for (const { name, delegate } of toRestore) {
+      const docs = data[name];
+      let ok = 0;
+      const errs = [];
+      for (const doc of docs) {
+        try {
+          await prisma[delegate].create({ data: toPrismaShape(doc) });
+          ok += 1;
+        } catch (e) {
+          errs.push(e.message);
+        }
       }
+      result.restored[name] = ok;
+      result.totalDocs += ok;
+      if (errs.length) result.errors.push({ collection: name, count: errs.length, sample: errs.slice(0, 3) });
     }
-    if (Array.isArray(data.billingCounters)) {
-      try {
-        const col = mongoose.connection.db.collection('billingcounters');
-        await col.deleteMany({});
-        if (data.billingCounters.length > 0) await col.insertMany(data.billingCounters);
-        result.restored.billingCounters = data.billingCounters.length;
-      } catch (err) {
-        result.errors.push({ collection: 'billingCounters', message: err.message });
+
+    // Counters — accept both old { _id, seq } and new { key, value } shapes
+    for (const keyName of ['counters', 'billingCounters']) {
+      if (Array.isArray(data[keyName])) {
+        try {
+          let n = 0;
+          for (const raw of data[keyName]) {
+            const { key, value } = toCounterRow(raw);
+            await prisma.counter.upsert({
+              where: { key },
+              update: { value },
+              create: { key, value },
+            });
+            n += 1;
+          }
+          result.restored[keyName] = n;
+        } catch (err) {
+          result.errors.push({ collection: keyName, message: err.message });
+        }
       }
     }
 
@@ -301,6 +286,15 @@ exports.restoreBackup = async (req, res, next) => {
 exports.gitPush = async (req, res, next) => {
   try {
     const projectRoot = path.join(__dirname, '../../..');
+
+    // Only meaningful when the server is running from a live git checkout
+    // (dev machine / source-based deployment). The packaged desktop app
+    // ships plain copied files with no `.git` in its ancestry.
+    try {
+      await runGit(['rev-parse', '--is-inside-work-tree'], projectRoot);
+    } catch {
+      return error(res, 'Push to GitHub is only available when running from a git checkout, not from the packaged desktop app.', 400);
+    }
 
     // 1. Export DB to a fresh backup folder
     const data = await gatherData();

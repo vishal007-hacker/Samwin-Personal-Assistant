@@ -1,12 +1,12 @@
-const mongoose = require('mongoose');
-const { mongoUri } = require('./env');
+const prisma = require('./prisma');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(mongoUri);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    await prisma.$connect();
+    console.log('PostgreSQL Connected (Prisma)');
   } catch (error) {
-    console.error(`MongoDB Connection Error: ${error.message}`);
+    console.error(`PostgreSQL Connection Error: ${error.message}`);
+    console.error('Make sure PostgreSQL is running and DATABASE_URL is set in server/.env');
     process.exit(1);
   }
 };

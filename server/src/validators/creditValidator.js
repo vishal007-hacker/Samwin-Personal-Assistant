@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 const createCredit = Joi.object({
-  customer: Joi.string().required().hex().length(24),
+  customer: Joi.string().required().min(1),
   reason: Joi.string().required().trim().min(2).max(200),
   totalAmount: Joi.number().required().min(1),
   dueDate: Joi.date().required(),

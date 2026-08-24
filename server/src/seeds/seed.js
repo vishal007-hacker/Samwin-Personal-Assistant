@@ -1,7 +1,5 @@
-const mongoose = require('mongoose');
-const User = require('../models/User');
-const Scheme = require('../models/Scheme');
-const { mongoUri } = require('../config/env');
+const bcrypt = require('bcryptjs');
+const prisma = require('../config/prisma');
 
 const defaultSchemes = [
   // LIC - Life Insurance
@@ -313,18 +311,21 @@ const defaultSchemes = [
 
 const seed = async () => {
   try {
-    await mongoose.connect(mongoUri);
-    console.log('Connected to MongoDB');
+    await prisma.$connect();
+    console.log('Connected to PostgreSQL');
 
     // Create admin user if not exists
-    const existingAdmin = await User.findOne({ email: 'admin' });
+    const existingAdmin = await prisma.user.findUnique({ where: { email: 'admin' } });
     if (!existingAdmin) {
-      await User.create({
-        name: 'Admin',
-        email: 'admin',
-        password: 'admin',
-        role: 'admin',
-        phone: '9999999999',
+      const hashed = await bcrypt.hash('admin', 12);
+      await prisma.user.create({
+        data: {
+          name: 'Admin',
+          email: 'admin',
+          password: hashed,
+          role: 'admin',
+          phone: '9999999999',
+        },
       });
       console.log('Admin user created (admin / admin)');
     } else {
@@ -332,18 +333,20 @@ const seed = async () => {
     }
 
     // Seed schemes if none exist
-    const schemeCount = await Scheme.countDocuments();
+    const schemeCount = await prisma.scheme.count();
     if (schemeCount === 0) {
-      await Scheme.insertMany(defaultSchemes);
+      await prisma.scheme.createMany({ data: defaultSchemes, skipDuplicates: true });
       console.log(`${defaultSchemes.length} default schemes seeded`);
     } else {
       console.log(`Schemes already exist (${schemeCount} found), skipping seed`);
     }
 
     console.log('Seed completed successfully!');
+    await prisma.$disconnect();
     process.exit(0);
   } catch (err) {
     console.error('Seed error:', err);
+    await prisma.$disconnect().catch(() => {});
     process.exit(1);
   }
 };

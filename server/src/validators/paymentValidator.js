@@ -1,8 +1,8 @@
 const Joi = require('joi');
 
 const createPayment = Joi.object({
-  policy: Joi.string().required().hex().length(24),
-  customer: Joi.string().required().hex().length(24),
+  policy: Joi.string().required().min(1),
+  customer: Joi.string().required().min(1),
   amount: Joi.number().required().min(1),
   paymentDate: Joi.date().required(),
   premiumDueDate: Joi.date().allow(null),

@@ -1,6 +1,6 @@
-const MaintenanceProduct = require('../models/MaintenanceProduct');
-const MaintenanceRecord = require('../models/MaintenanceRecord');
+const prisma = require('../config/prisma');
 const { success, error } = require('../utils/responseHelper');
+const { many, one } = require('../utils/prismaSerializer');
 
 // ── Products ────────────────────────────────────────────────────────────────
 
@@ -8,49 +8,53 @@ const { success, error } = require('../utils/responseHelper');
 exports.getProducts = async (req, res, next) => {
   try {
     const { search, isActive } = req.query;
-    const query = {};
+    const where = {};
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
-        { location: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
+        { location: { contains: search, mode: 'insensitive' } },
       ];
     }
-    if (isActive !== undefined) query.isActive = isActive === 'true';
+    if (isActive !== undefined) where.isActive = isActive === 'true';
 
-    const products = await MaintenanceProduct.find(query).sort({ nextMaintenanceDate: 1, name: 1 });
+    const products = await prisma.maintenanceProduct.findMany({
+      where,
+      orderBy: [{ nextMaintenanceDate: 'asc' }, { name: 'asc' }],
+    });
 
-    // Fetch last record for each product (for "lastServiced" info)
-    const productIds = products.map((p) => p._id);
-    const lastRecords = await MaintenanceRecord.aggregate([
-      { $match: { product: { $in: productIds } } },
-      { $sort: { date: -1 } },
-      {
-        $group: {
-          _id: '$product',
-          lastDate: { $first: '$date' },
-          lastCost: { $first: '$cost' },
-          lastWorkDone: { $first: '$workDone' },
-          totalCost: { $sum: '$cost' },
-          recordCount: { $sum: 1 },
-        },
-      },
-    ]);
-    const byProduct = Object.fromEntries(lastRecords.map((r) => [String(r._id), r]));
+    // Fetch all records for these products once and aggregate last-service stats.
+    const productIds = products.map((p) => p.id);
+    const records = productIds.length
+      ? await prisma.maintenanceRecord.findMany({ where: { productId: { in: productIds } } })
+      : [];
+
+    const statsByProduct = {};
+    for (const r of records) {
+      const s = (statsByProduct[r.productId] = statsByProduct[r.productId] || { count: 0, total: 0 });
+      s.count += 1;
+      s.total += (r.cost || 0);
+      if (!s.lastDate || new Date(r.date) > new Date(s.lastDate)) {
+        s.lastDate = r.date;
+        s.lastCost = r.cost;
+        s.lastWorkDone = r.workDone;
+      }
+    }
 
     const enriched = products.map((p) => {
-      const stats = byProduct[String(p._id)] || {};
+      const stats = statsByProduct[p.id] || {};
       return {
-        ...p.toObject(),
+        ...p,
+        _id: p.id,
         lastServicedDate: stats.lastDate || null,
         lastCost: stats.lastCost || 0,
         lastWorkDone: stats.lastWorkDone || '',
-        totalSpent: stats.totalCost || 0,
-        serviceCount: stats.recordCount || 0,
+        totalSpent: stats.total || 0,
+        serviceCount: stats.count || 0,
       };
     });
 
-    success(res, enriched);
+    success(res, many(enriched));
   } catch (err) {
     next(err);
   }
@@ -66,8 +70,10 @@ exports.createProduct = async (req, res, next) => {
       next.setDate(next.getDate() + days);
       req.body.nextMaintenanceDate = next;
     }
-    const product = await MaintenanceProduct.create({ ...req.body, createdBy: req.user._id });
-    success(res, product, 201);
+    const product = await prisma.maintenanceProduct.create({
+      data: { ...req.body, createdById: req.user.id },
+    });
+    success(res, one(product), 201);
   } catch (err) {
     next(err);
   }
@@ -76,13 +82,14 @@ exports.createProduct = async (req, res, next) => {
 // PUT /api/maintenance/products/:id
 exports.updateProduct = async (req, res, next) => {
   try {
-    const product = await MaintenanceProduct.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
+    const product = await prisma.maintenanceProduct.update({
+      where: { id: req.params.id },
+      data: req.body,
     });
     if (!product) return error(res, 'Product not found', 404);
-    success(res, product);
+    success(res, one(product));
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Product not found', 404);
     next(err);
   }
 };
@@ -90,33 +97,35 @@ exports.updateProduct = async (req, res, next) => {
 // DELETE /api/maintenance/products/:id
 exports.deleteProduct = async (req, res, next) => {
   try {
-    const product = await MaintenanceProduct.findByIdAndDelete(req.params.id);
+    const product = await prisma.maintenanceProduct.findUnique({ where: { id: req.params.id } });
     if (!product) return error(res, 'Product not found', 404);
     // Cascade: delete all records for this product
-    await MaintenanceRecord.deleteMany({ product: req.params.id });
+    await prisma.maintenanceRecord.deleteMany({ where: { productId: product.id } });
+    await prisma.maintenanceProduct.delete({ where: { id: product.id } });
     success(res, { message: 'Deleted' });
   } catch (err) {
     next(err);
   }
 };
-
 // ── Records (Maintenance History) ───────────────────────────────────────────
 
 // GET /api/maintenance/records?product=&from=&to=
 exports.getRecords = async (req, res, next) => {
   try {
     const { product, from, to } = req.query;
-    const query = {};
-    if (product) query.product = product;
+    const where = {};
+    if (product) where.productId = product;
     if (from || to) {
-      query.date = {};
-      if (from) query.date.$gte = new Date(from);
-      if (to) query.date.$lte = new Date(to + 'T23:59:59.999Z');
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) where.date.lte = new Date(to + 'T23:59:59.999Z');
     }
-    const records = await MaintenanceRecord.find(query)
-      .populate('product', 'name category location frequencyDays')
-      .sort({ date: -1, createdAt: -1 });
-    success(res, records);
+    const records = await prisma.maintenanceRecord.findMany({
+      where,
+      include: { product: { select: { id: true, name: true, category: true, location: true, frequencyDays: true } } },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
+    success(res, many(records));
   } catch (err) {
     next(err);
   }
@@ -125,10 +134,15 @@ exports.getRecords = async (req, res, next) => {
 // POST /api/maintenance/records
 exports.createRecord = async (req, res, next) => {
   try {
-    const record = await MaintenanceRecord.create({ ...req.body, createdBy: req.user._id });
+    const data = { ...req.body, createdById: req.user.id };
+    if (data.product) {
+      data.productId = data.product;
+      delete data.product;
+    }
+    const record = await prisma.maintenanceRecord.create({ data });
 
     // Update the product's nextMaintenanceDate
-    const product = await MaintenanceProduct.findById(req.body.product);
+    const product = await prisma.maintenanceProduct.findUnique({ where: { id: req.body.product } });
     if (product) {
       let nextDue = req.body.nextDueDate ? new Date(req.body.nextDueDate) : null;
       if (!nextDue) {
@@ -137,12 +151,17 @@ exports.createRecord = async (req, res, next) => {
         nextDue = new Date(base);
         nextDue.setDate(nextDue.getDate() + days);
       }
-      product.nextMaintenanceDate = nextDue;
-      await product.save();
+      await prisma.maintenanceProduct.update({
+        where: { id: product.id },
+        data: { nextMaintenanceDate: nextDue },
+      });
     }
 
-    await record.populate('product', 'name category location frequencyDays');
-    success(res, record, 201);
+    const populated = await prisma.maintenanceRecord.findUnique({
+      where: { id: record.id },
+      include: { product: { select: { id: true, name: true, category: true, location: true, frequencyDays: true } } },
+    });
+    success(res, one(populated), 201);
   } catch (err) {
     next(err);
   }
@@ -151,13 +170,20 @@ exports.createRecord = async (req, res, next) => {
 // PUT /api/maintenance/records/:id
 exports.updateRecord = async (req, res, next) => {
   try {
-    const record = await MaintenanceRecord.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    }).populate('product', 'name category location frequencyDays');
+    const data = { ...req.body };
+    if (data.product) {
+      data.productId = data.product;
+      delete data.product;
+    }
+    const record = await prisma.maintenanceRecord.update({
+      where: { id: req.params.id },
+      data,
+      include: { product: { select: { id: true, name: true, category: true, location: true, frequencyDays: true } } },
+    });
     if (!record) return error(res, 'Record not found', 404);
-    success(res, record);
+    success(res, one(record));
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Record not found', 404);
     next(err);
   }
 };
@@ -165,10 +191,11 @@ exports.updateRecord = async (req, res, next) => {
 // DELETE /api/maintenance/records/:id
 exports.deleteRecord = async (req, res, next) => {
   try {
-    const record = await MaintenanceRecord.findByIdAndDelete(req.params.id);
+    const record = await prisma.maintenanceRecord.delete({ where: { id: req.params.id } });
     if (!record) return error(res, 'Record not found', 404);
     success(res, { message: 'Deleted' });
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Record not found', 404);
     next(err);
   }
 };

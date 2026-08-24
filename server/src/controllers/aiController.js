@@ -1,7 +1,4 @@
-const Sale = require('../models/Sale');
-const Expense = require('../models/Expense');
-const Credit = require('../models/Credit');
-const Stock = require('../models/Stock');
+const prisma = require('../config/prisma');
 
 exports.chat = async (req, res) => {
   try {
@@ -13,29 +10,25 @@ exports.chat = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [sales, expenses, credits, stockCount] = await Promise.all([
-      Sale.aggregate([
-        { $match: { date: { $gte: today } } },
-        { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
-      ]),
-      Expense.aggregate([
-        { $match: { date: { $gte: today } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } }
-      ]),
-      Credit.countDocuments({ status: 'overdue' }),
-      Stock.countDocuments({ status: 'in_stock' })
+    const [salesAgg, expensesAgg, overdueCredits, stockCount] = await Promise.all([
+      prisma.sale.aggregate({ where: { date: { gte: today } }, _sum: { amount: true }, _count: true }),
+      prisma.expense.aggregate({ where: { date: { gte: today } }, _sum: { amount: true } }),
+      prisma.credit.count({ where: { status: 'open', dueDate: { lt: new Date() } } }),
+      prisma.stock.count({ where: { status: 'in_stock' } }),
     ]);
 
-    const salesTotal = sales[0]?.total || 0;
-    const expensesTotal = expenses[0]?.total || 0;
-    
+    const salesTotal = salesAgg._sum.amount || 0;
+    const expensesTotal = expensesAgg._sum.amount || 0;
+    const credits = overdueCredits || 0;
+    const stock = stockCount || 0;
+
     const systemPrompt = `You are Samwin AI, an intelligent business assistant for Samwin Infotech.
 You help the shop owner manage their business. 
 Here is the current live data for today:
 - Today's Sales: Rs. ${salesTotal}
 - Today's Expenses: Rs. ${expensesTotal}
 - Overdue Credits: ${credits}
-- Total Items In Stock: ${stockCount}
+- Total Items In Stock: ${stock}
 
 Answer the user's questions clearly, concisely, and professionally. Use the data provided if asked. Keep your answers brief unless asked to elaborate.`;
 
@@ -71,7 +64,7 @@ Answer the user's questions clearly, concisely, and professionally. Use the data
     res.setHeader('Transfer-Encoding', 'chunked');
 
     let buffer = '';
-    
+
     const reader = ollamaResponse.body.getReader();
     const decoder = new TextDecoder();
 
@@ -82,7 +75,7 @@ Answer the user's questions clearly, concisely, and professionally. Use the data
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       // The last line might be incomplete, keep it in the buffer
-      buffer = lines.pop(); 
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (!line.trim()) continue;
@@ -91,23 +84,23 @@ Answer the user's questions clearly, concisely, and professionally. Use the data
           if (json.message?.content) {
             res.write(json.message.content);
           }
-        } catch(e) {
+        } catch (e) {
           console.error('[AI] Stream JSON parse error:', e.message);
         }
       }
     }
-    
+
     res.end();
   } catch (error) {
     console.error('[AI] Chat error:', error.message);
-    
+
     if (error.cause?.code === 'ECONNREFUSED' || error.message.includes('fetch failed')) {
-      return res.status(503).json({ 
-        success: false, 
-        message: 'Could not connect to local Ollama AI. Make sure Ollama is running.' 
+      return res.status(503).json({
+        success: false,
+        message: 'Could not connect to local Ollama AI. Make sure Ollama is running.'
       });
     }
-    
+
     // Bubble up model missing errors or other explicit Ollama errors
     res.status(500).json({ success: false, message: error.message || 'AI Chat failed. Is Ollama running?' });
   }

@@ -6,9 +6,15 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon --ignore session-samwin/ src/server.js",
-    "seed": "node src/seeds/seed.js"
+    "seed": "node src/seeds/seed.js",
+    "seed:stock": "node src/seeds/seedStock.js",
+    "import": "node src/seeds/importData.js",
+    "export": "node src/seeds/exportData.js",
+    "prisma": "prisma"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -23,12 +29,14 @@
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
+    "pg": "^8.23.0",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
     "web-push": "^3.6.7",
     "whatsapp-web.js": "^1.34.7"
   },
   "devDependencies": {
-    "nodemon": "^3.1.7"
+    "nodemon": "^3.1.7",
+    "prisma": "^7.9.1"
   }
 }

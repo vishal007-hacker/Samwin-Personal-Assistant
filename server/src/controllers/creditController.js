@@ -1,11 +1,14 @@
-const Credit = require('../models/Credit');
+const prisma = require('../config/prisma');
 const { success, paginated, error } = require('../utils/responseHelper');
+const { many, one } = require('../utils/prismaSerializer');
 
-// ── Helper: recalculate credit's dueDate to earliest unpaid chunk ────────────
+const customerSelect = { id: true, name: true, phone: true, email: true };
+
+// ── Helpers: recalculate dueDate & apply payments FIFO across chunks ────────
 
 function recalculateDueDate(credit) {
-  const chunks = credit.transactions
-    .filter(t => t.type === 'credit' || t.type === 'topup')
+  const chunks = (credit.transactions || [])
+    .filter((t) => t.type === 'credit' || t.type === 'topup')
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
   for (const chunk of chunks) {
@@ -20,12 +23,10 @@ function recalculateDueDate(credit) {
   }
 }
 
-// ── Helper: apply payment FIFO across chunks (earliest dueDate first) ────────
-
 function applyPaymentFIFO(credit, amount) {
   let remaining = amount;
-  const chunks = credit.transactions
-    .filter(t => t.type === 'credit' || t.type === 'topup')
+  const chunks = (credit.transactions || [])
+    .filter((t) => t.type === 'credit' || t.type === 'topup')
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
   for (const chunk of chunks) {
@@ -43,23 +44,25 @@ exports.getCredits = async (req, res, next) => {
   try {
     const { page = 1, limit = 50, status, search } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
-    const query = {};
+    const where = {};
 
     if (status === 'open' || status === 'closed') {
-      query.status = status;
+      where.status = status;
     }
     if (status === 'overdue') {
-      query.status = 'open';
-      query.dueDate = { $lt: new Date() };
+      where.status = 'open';
+      where.dueDate = { lt: new Date() };
     }
 
     let credits, total;
 
     if (search) {
       const searchRegex = new RegExp(search, 'i');
-      const all = await Credit.find(query)
-        .populate('customer', 'name phone email')
-        .sort({ dueDate: 1 });
+      const all = await prisma.credit.findMany({
+        where,
+        include: { customer: { select: customerSelect } },
+        orderBy: { dueDate: 'asc' },
+      });
       const filtered = all.filter(
         (c) =>
           searchRegex.test(c.customer?.name) ||
@@ -70,16 +73,18 @@ exports.getCredits = async (req, res, next) => {
       credits = filtered.slice(skip, skip + Number(limit));
     } else {
       [credits, total] = await Promise.all([
-        Credit.find(query)
-          .populate('customer', 'name phone email')
-          .sort({ dueDate: 1 })
-          .skip(skip)
-          .limit(Number(limit)),
-        Credit.countDocuments(query),
+        prisma.credit.findMany({
+          where,
+          include: { customer: { select: customerSelect } },
+          orderBy: { dueDate: 'asc' },
+          skip,
+          take: Number(limit),
+        }),
+        prisma.credit.count({ where }),
       ]);
     }
 
-    paginated(res, { docs: credits, total, page: Number(page), limit: Number(limit) });
+    paginated(res, { docs: many(credits), total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     next(err);
   }
@@ -88,10 +93,12 @@ exports.getCredits = async (req, res, next) => {
 // GET /api/credits/:id
 exports.getCredit = async (req, res, next) => {
   try {
-    const credit = await Credit.findById(req.params.id)
-      .populate('customer', 'name phone email');
+    const credit = await prisma.credit.findUnique({
+      where: { id: req.params.id },
+      include: { customer: { select: customerSelect } },
+    });
     if (!credit) return error(res, 'Credit not found', 404);
-    success(res, credit);
+    success(res, one(credit));
   } catch (err) {
     next(err);
   }
@@ -100,10 +107,12 @@ exports.getCredit = async (req, res, next) => {
 // GET /api/credits/customer/:customerId — all credits for a customer
 exports.getCreditsByCustomer = async (req, res, next) => {
   try {
-    const credits = await Credit.find({ customer: req.params.customerId })
-      .populate('customer', 'name phone email')
-      .sort({ status: 1, dueDate: 1 });
-    success(res, credits);
+    const credits = await prisma.credit.findMany({
+      where: { customerId: req.params.customerId },
+      include: { customer: { select: customerSelect } },
+      orderBy: [{ status: 'asc' }, { dueDate: 'asc' }],
+    });
+    success(res, many(credits));
   } catch (err) {
     next(err);
   }
@@ -113,49 +122,42 @@ exports.getCreditsByCustomer = async (req, res, next) => {
 exports.createCredit = async (req, res, next) => {
   try {
     const { customer, reason, totalAmount, dueDate, notes } = req.body;
-
-    // Block duplicate — one open credit per customer
-    const existingCredit = await Credit.findOne({ customer, status: 'open' })
-      .populate('customer', 'name phone email');
-    if (existingCredit) {
-      return res.status(409).json({
-        success: false,
-        duplicate: true,
-        message: 'Customer already has an open credit. Please top-up instead.',
-        existingCredit,
-      });
-    }
-
-    const credit = await Credit.create({
-      customer,
-      reason,
-      totalAmount,
-      balanceAmount: totalAmount,
-      dueDate,
-      notes,
-      createdBy: req.user._id,
-      transactions: [
-        { type: 'credit', amount: totalAmount, dueDate, paidAmount: 0, notes: 'Initial credit', date: new Date() },
-      ],
+    const credit = await prisma.credit.create({
+      data: {
+        customerId: customer,
+        reason,
+        totalAmount,
+        balanceAmount: totalAmount,
+        dueDate,
+        status: 'open',
+        notes,
+        transactions: [
+          { type: 'credit', amount: totalAmount, dueDate, paidAmount: 0, notes: 'Initial credit', date: new Date() },
+        ],
+        createdById: req.user.id,
+      },
     });
 
-    await credit.populate('customer', 'name phone email');
-    success(res, credit, 201);
+    const populated = await prisma.credit.findUnique({
+      where: { id: credit.id },
+      include: { customer: { select: customerSelect } },
+    });
+    success(res, one(populated), 201);
   } catch (err) {
     next(err);
   }
 };
-
 // PUT /api/credits/:id/topup
 exports.topupCredit = async (req, res, next) => {
   try {
     const { amount, dueDate, notes } = req.body;
-    const credit = await Credit.findById(req.params.id);
+    const credit = await prisma.credit.findUnique({ where: { id: req.params.id } });
     if (!credit) return error(res, 'Credit not found', 404);
     if (credit.status === 'closed') return error(res, 'Cannot top-up a closed credit', 400);
 
     credit.totalAmount += amount;
     credit.balanceAmount += amount;
+    credit.transactions = credit.transactions || [];
     credit.transactions.push({
       type: 'topup',
       amount,
@@ -165,11 +167,13 @@ exports.topupCredit = async (req, res, next) => {
       date: new Date(),
     });
 
-    // Recalculate active dueDate (earliest unpaid chunk)
     recalculateDueDate(credit);
-    await credit.save();
-    await credit.populate('customer', 'name phone email');
-    success(res, credit);
+    const updated = await prisma.credit.update({
+      where: { id: credit.id },
+      data: { totalAmount: credit.totalAmount, balanceAmount: credit.balanceAmount, dueDate: credit.dueDate, transactions: credit.transactions },
+      include: { customer: { select: customerSelect } },
+    });
+    success(res, one(updated));
   } catch (err) {
     next(err);
   }
@@ -179,7 +183,7 @@ exports.topupCredit = async (req, res, next) => {
 exports.paymentCredit = async (req, res, next) => {
   try {
     const { amount, notes } = req.body;
-    const credit = await Credit.findById(req.params.id);
+    const credit = await prisma.credit.findUnique({ where: { id: req.params.id } });
     if (!credit) return error(res, 'Credit not found', 404);
     if (credit.status === 'closed') return error(res, 'Credit is already closed', 400);
     if (amount > credit.balanceAmount) return error(res, 'Payment amount exceeds balance', 400);
@@ -188,6 +192,7 @@ exports.paymentCredit = async (req, res, next) => {
     applyPaymentFIFO(credit, amount);
 
     credit.balanceAmount -= amount;
+    credit.transactions = credit.transactions || [];
     credit.transactions.push({ type: 'payment', amount, notes: notes || 'Payment', date: new Date() });
 
     if (credit.balanceAmount <= 0) {
@@ -197,10 +202,12 @@ exports.paymentCredit = async (req, res, next) => {
 
     // Recalculate active dueDate (shifts to next unpaid chunk)
     recalculateDueDate(credit);
-    credit.markModified('transactions');
-    await credit.save();
-    await credit.populate('customer', 'name phone email');
-    success(res, credit);
+    const updated = await prisma.credit.update({
+      where: { id: credit.id },
+      data: { balanceAmount: credit.balanceAmount, status: credit.status, dueDate: credit.dueDate, transactions: credit.transactions },
+      include: { customer: { select: customerSelect } },
+    });
+    success(res, one(updated));
   } catch (err) {
     next(err);
   }
@@ -209,10 +216,11 @@ exports.paymentCredit = async (req, res, next) => {
 // PUT /api/credits/:id/close
 exports.closeCredit = async (req, res, next) => {
   try {
-    const credit = await Credit.findById(req.params.id);
+    const credit = await prisma.credit.findUnique({ where: { id: req.params.id } });
     if (!credit) return error(res, 'Credit not found', 404);
 
     credit.status = 'closed';
+    credit.transactions = credit.transactions || [];
     credit.transactions.push({
       type: 'payment',
       amount: credit.balanceAmount,
@@ -221,17 +229,20 @@ exports.closeCredit = async (req, res, next) => {
     });
 
     // Mark all chunks as fully paid
-    credit.transactions.forEach(t => {
+    credit.transactions.forEach((t) => {
       if (t.type === 'credit' || t.type === 'topup') {
         t.paidAmount = t.amount;
       }
     });
 
     credit.balanceAmount = 0;
-    credit.markModified('transactions');
-    await credit.save();
-    await credit.populate('customer', 'name phone email');
-    success(res, credit);
+
+    const updated = await prisma.credit.update({
+      where: { id: credit.id },
+      data: { status: credit.status, balanceAmount: 0, transactions: credit.transactions },
+      include: { customer: { select: customerSelect } },
+    });
+    success(res, one(updated));
   } catch (err) {
     next(err);
   }
@@ -240,10 +251,11 @@ exports.closeCredit = async (req, res, next) => {
 // DELETE /api/credits/:id
 exports.deleteCredit = async (req, res, next) => {
   try {
-    const credit = await Credit.findByIdAndDelete(req.params.id);
+    const credit = await prisma.credit.delete({ where: { id: req.params.id } });
     if (!credit) return error(res, 'Credit not found', 404);
     success(res, { message: 'Credit deleted' });
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Credit not found', 404);
     next(err);
   }
 };

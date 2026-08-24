@@ -1,28 +1,33 @@
-const Service = require('../models/Service');
+const prisma = require('../config/prisma');
 const { success, error } = require('../utils/responseHelper');
+const { many, one } = require('../utils/prismaSerializer');
+
+const customerSelect = { id: true, name: true, phone: true, email: true };
 
 // GET /api/services
 exports.getAll = async (req, res, next) => {
   try {
     const { customer, typeOfWork, from, to, search } = req.query;
-    const query = {};
-    if (customer) query.customer = customer;
-    if (typeOfWork) query.typeOfWork = typeOfWork;
+    const where = {};
+    if (customer) where.customerId = customer;
+    if (typeOfWork) where.typeOfWork = typeOfWork;
     if (from || to) {
-      query.date = {};
-      if (from) query.date.$gte = new Date(from);
-      if (to) query.date.$lte = new Date(to + 'T23:59:59.999Z');
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) where.date.lte = new Date(to + 'T23:59:59.999Z');
     }
     if (search) {
-      query.$or = [
-        { materialsUsed: { $regex: search, $options: 'i' } },
-        { notes: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { materialsUsed: { contains: search, mode: 'insensitive' } },
+        { notes: { contains: search, mode: 'insensitive' } },
       ];
     }
-    const docs = await Service.find(query)
-      .populate('customer', 'name phone email')
-      .sort({ date: -1, createdAt: -1 });
-    success(res, docs);
+    const docs = await prisma.service.findMany({
+      where,
+      include: { customer: { select: customerSelect } },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
+    success(res, many(docs));
   } catch (err) {
     next(err);
   }
@@ -31,9 +36,12 @@ exports.getAll = async (req, res, next) => {
 // GET /api/services/:id
 exports.getOne = async (req, res, next) => {
   try {
-    const doc = await Service.findById(req.params.id).populate('customer', 'name phone email');
+    const doc = await prisma.service.findUnique({
+      where: { id: req.params.id },
+      include: { customer: { select: customerSelect } },
+    });
     if (!doc) return error(res, 'Service not found', 404);
-    success(res, doc);
+    success(res, one(doc));
   } catch (err) {
     next(err);
   }
@@ -42,9 +50,17 @@ exports.getOne = async (req, res, next) => {
 // POST /api/services
 exports.create = async (req, res, next) => {
   try {
-    const doc = await Service.create({ ...req.body, createdBy: req.user._id });
-    await doc.populate('customer', 'name phone email');
-    success(res, doc, 201);
+    const data = { ...req.body, createdById: req.user.id };
+    if (data.customer) {
+      data.customerId = data.customer;
+      delete data.customer;
+    }
+    const doc = await prisma.service.create({ data });
+    const populated = await prisma.service.findUnique({
+      where: { id: doc.id },
+      include: { customer: { select: customerSelect } },
+    });
+    success(res, one(populated), 201);
   } catch (err) {
     next(err);
   }
@@ -53,13 +69,20 @@ exports.create = async (req, res, next) => {
 // PUT /api/services/:id
 exports.update = async (req, res, next) => {
   try {
-    const doc = await Service.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    }).populate('customer', 'name phone email');
+    const data = { ...req.body };
+    if (data.customer) {
+      data.customerId = data.customer;
+      delete data.customer;
+    }
+    const doc = await prisma.service.update({
+      where: { id: req.params.id },
+      data,
+      include: { customer: { select: customerSelect } },
+    });
     if (!doc) return error(res, 'Service not found', 404);
-    success(res, doc);
+    success(res, one(doc));
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Service not found', 404);
     next(err);
   }
 };
@@ -67,10 +90,11 @@ exports.update = async (req, res, next) => {
 // DELETE /api/services/:id
 exports.remove = async (req, res, next) => {
   try {
-    const doc = await Service.findByIdAndDelete(req.params.id);
+    const doc = await prisma.service.delete({ where: { id: req.params.id } });
     if (!doc) return error(res, 'Service not found', 404);
     success(res, { message: 'Deleted' });
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Service not found', 404);
     next(err);
   }
 };

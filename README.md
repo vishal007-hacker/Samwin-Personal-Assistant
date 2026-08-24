@@ -13,8 +13,8 @@ A complete full-stack office management application for **Samwin Infotech** — 
 | Layer          | Technology                                                        |
 | -------------- | ----------------------------------------------------------------- |
 | Frontend       | React 19, Vite 7, Tailwind CSS 4, React Router 7, TanStack Query |
-| Backend        | Node.js, Express 4, Mongoose 8, JWT Authentication                |
-| Database       | MongoDB 8                                                         |
+| Backend        | Node.js, Express 4, Prisma ORM, JWT Authentication                |
+| Database       | PostgreSQL 16                                                     |
 | UI Icons       | Lucide React                                                      |
 | Forms          | React Hook Form + Zod validation                                  |
 | Notifications  | react-hot-toast, Web Audio API (beep alerts)                      |
@@ -524,7 +524,7 @@ Samwin/Personal Assistant/
 ### Prerequisites
 
 - **Node.js** v18 or higher
-- **MongoDB** 6+ (local or Atlas)
+- **PostgreSQL** 14+ (local or hosted)
 
 ### 1. Clone / Copy the project
 
@@ -545,7 +545,7 @@ The `server/.env` file should contain:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/insurance-tracker
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/samwin_db?schema=public"
 JWT_SECRET=samwin-insurance-tracker-jwt-secret-2024
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:5173

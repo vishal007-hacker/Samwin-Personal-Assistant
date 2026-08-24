@@ -1,6 +1,11 @@
-const Policy = require('../models/Policy');
-const Notification = require('../models/Notification');
+const prisma = require('../config/prisma');
 const { success, paginated, error } = require('../utils/responseHelper');
+const { many, one } = require('../utils/prismaSerializer');
+
+const manageInclude = {
+  customer: { select: { id: true, name: true, phone: true, email: true } },
+  scheme: { select: { id: true, name: true, type: true, company: true } },
+};
 
 // GET /api/reminders - List all active policies with reminder info
 exports.getReminders = async (req, res, next) => {
@@ -8,31 +13,31 @@ exports.getReminders = async (req, res, next) => {
     const { page = 1, limit = 50, search = '', filter = 'all' } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const query = { status: 'active' };
+    const where = { status: 'active' };
     const now = new Date();
 
     // Filter by reminder timing
     if (filter === 'overdue') {
-      query.nextPremiumDate = { $lt: now };
+      where.nextPremiumDate = { lt: now };
     } else if (filter === 'upcoming') {
       const thirtyDays = new Date();
       thirtyDays.setDate(thirtyDays.getDate() + 30);
-      query.nextPremiumDate = { $gte: now, $lte: thirtyDays };
+      where.nextPremiumDate = { gte: now, lte: thirtyDays };
     } else if (filter === 'expiring') {
       const sixtyDays = new Date();
       sixtyDays.setDate(sixtyDays.getDate() + 60);
-      query.maturityDate = { $gte: now, $lte: sixtyDays };
+      where.maturityDate = { gte: now, lte: sixtyDays };
     }
 
-    // Build aggregation for search across populated fields
     let policies, total;
 
     if (search) {
       const searchRegex = new RegExp(search, 'i');
-      const allPolicies = await Policy.find(query)
-        .populate('customer', 'name phone email')
-        .populate('scheme', 'name type company')
-        .sort({ nextPremiumDate: 1 });
+      const allPolicies = await prisma.policy.findMany({
+        where,
+        include: manageInclude,
+        orderBy: { nextPremiumDate: 'asc' },
+      });
 
       const filtered = allPolicies.filter(
         (p) =>
@@ -47,17 +52,18 @@ exports.getReminders = async (req, res, next) => {
       policies = filtered.slice(skip, skip + Number(limit));
     } else {
       [policies, total] = await Promise.all([
-        Policy.find(query)
-          .populate('customer', 'name phone email')
-          .populate('scheme', 'name type company')
-          .sort({ nextPremiumDate: 1 })
-          .skip(skip)
-          .limit(Number(limit)),
-        Policy.countDocuments(query),
+        prisma.policy.findMany({
+          where,
+          include: manageInclude,
+          orderBy: { nextPremiumDate: 'asc' },
+          skip,
+          take: Number(limit),
+        }),
+        prisma.policy.count({ where }),
       ]);
     }
 
-    paginated(res, { docs: policies, total, page: Number(page), limit: Number(limit) });
+    paginated(res, { docs: many(policies), total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     next(err);
   }
@@ -69,23 +75,25 @@ exports.updateReminderSettings = async (req, res, next) => {
     const { id } = req.params;
     const { reminderSettings } = req.body;
 
-    const policy = await Policy.findById(id);
+    const policy = await prisma.policy.findUnique({ where: { id } });
     if (!policy) {
       return error(res, 'Policy not found', 404);
     }
 
-    policy.reminderSettings = {
+    const settings = {
       oneMonthBefore: !!reminderSettings?.oneMonthBefore,
       tenDaysBefore: !!reminderSettings?.tenDaysBefore,
       fiveDaysBefore: !!reminderSettings?.fiveDaysBefore,
       oneDayBefore: !!reminderSettings?.oneDayBefore,
     };
 
-    await policy.save();
-    await policy.populate('customer', 'name phone email');
-    await policy.populate('scheme', 'name type company');
+    const updated = await prisma.policy.update({
+      where: { id },
+      data: { reminderSettings: settings },
+      include: manageInclude,
+    });
 
-    success(res, policy);
+    success(res, one(updated));
   } catch (err) {
     next(err);
   }
@@ -95,9 +103,13 @@ exports.updateReminderSettings = async (req, res, next) => {
 exports.sendWhatsAppReminder = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const policy = await Policy.findById(id)
-      .populate('customer', 'name phone')
-      .populate('scheme', 'name type');
+    const policy = await prisma.policy.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { id: true, name: true, phone: true } },
+        scheme: { select: { id: true, name: true, type: true } },
+      },
+    });
 
     if (!policy) {
       return error(res, 'Policy not found', 404);
@@ -108,10 +120,10 @@ exports.sendWhatsAppReminder = async (req, res, next) => {
     }
 
     const dueDate = policy.nextPremiumDate
-      ? policy.nextPremiumDate.toLocaleDateString('en-IN')
+      ? new Date(policy.nextPremiumDate).toLocaleDateString('en-IN')
       : 'N/A';
 
-    const isOverdue = policy.nextPremiumDate && policy.nextPremiumDate < new Date();
+    const isOverdue = policy.nextPremiumDate && new Date(policy.nextPremiumDate) < new Date();
 
     let message;
     if (isOverdue) {
@@ -121,12 +133,14 @@ exports.sendWhatsAppReminder = async (req, res, next) => {
     }
 
     // Log notification
-    await Notification.create({
-      type: isOverdue ? 'overdue_alert' : 'premium_reminder',
-      policy: policy._id,
-      customer: policy.customer._id,
-      message: `WhatsApp reminder sent to ${policy.customer.name} for policy ${policy.policyNumber}`,
-      channels: { whatsapp: true },
+    await prisma.notification.create({
+      data: {
+        type: isOverdue ? 'overdue_alert' : 'premium_reminder',
+        policyId: policy.id,
+        customerId: policy.customer && policy.customer.id,
+        message: `WhatsApp reminder sent to ${policy.customer.name} for policy ${policy.policyNumber}`,
+        channels: { whatsapp: { sent: true } },
+      },
     });
 
     let phone = policy.customer.phone.replace(/\D/g, '');

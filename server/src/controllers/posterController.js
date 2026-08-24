@@ -1,5 +1,6 @@
-const Poster = require('../models/Poster');
+const prisma = require('../config/prisma');
 const { success, error } = require('../utils/responseHelper');
+const { many, one } = require('../utils/prismaSerializer');
 const bibleVerseService = require('../services/bibleVerseService');
 
 // GET /api/posters/verse-of-day
@@ -27,8 +28,8 @@ exports.getVerse = async (req, res, next) => {
 // GET /api/posters
 exports.getAll = async (req, res, next) => {
   try {
-    const docs = await Poster.find({}).sort({ createdAt: -1 });
-    success(res, docs);
+    const docs = await prisma.poster.findMany({ orderBy: { createdAt: 'desc' } });
+    success(res, many(docs));
   } catch (err) {
     next(err);
   }
@@ -41,16 +42,18 @@ exports.create = async (req, res, next) => {
     if (!bodyText || !String(bodyText).trim()) {
       return error(res, 'bodyText is required', 400);
     }
-    const doc = await Poster.create({
-      title,
-      bodyText,
-      footer,
-      theme,
-      style,
-      isFavorite: !!isFavorite,
-      createdBy: req.user._id,
+    const doc = await prisma.poster.create({
+      data: {
+        title,
+        bodyText,
+        footer,
+        theme,
+        style,
+        isFavorite: !!isFavorite,
+        createdById: req.user.id,
+      },
     });
-    success(res, doc, 201);
+    success(res, one(doc), 201);
   } catch (err) {
     next(err);
   }
@@ -59,10 +62,11 @@ exports.create = async (req, res, next) => {
 // PUT /api/posters/:id
 exports.update = async (req, res, next) => {
   try {
-    const doc = await Poster.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const doc = await prisma.poster.update({ where: { id: req.params.id }, data: req.body });
     if (!doc) return error(res, 'Poster not found', 404);
-    success(res, doc);
+    success(res, one(doc));
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Poster not found', 404);
     next(err);
   }
 };
@@ -70,10 +74,11 @@ exports.update = async (req, res, next) => {
 // DELETE /api/posters/:id
 exports.remove = async (req, res, next) => {
   try {
-    const doc = await Poster.findByIdAndDelete(req.params.id);
+    const doc = await prisma.poster.delete({ where: { id: req.params.id } });
     if (!doc) return error(res, 'Poster not found', 404);
     success(res, { message: 'Deleted' });
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Poster not found', 404);
     next(err);
   }
 };

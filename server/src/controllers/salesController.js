@@ -1,14 +1,14 @@
-const Sale = require('../models/Sale');
-const SalesCategory = require('../models/SalesCategory');
+const prisma = require('../config/prisma');
 const { success, paginated, error } = require('../utils/responseHelper');
+const { many, one } = require('../utils/prismaSerializer');
 
 // ── Categories ──────────────────────────────────────────────────────────────
 
 // GET /api/sales/categories
 exports.getCategories = async (req, res, next) => {
   try {
-    const categories = await SalesCategory.find().sort({ name: 1 });
-    success(res, categories);
+    const categories = await prisma.salesCategory.findMany({ orderBy: { name: 'asc' } });
+    success(res, many(categories));
   } catch (err) {
     next(err);
   }
@@ -18,11 +18,14 @@ exports.getCategories = async (req, res, next) => {
 exports.createCategory = async (req, res, next) => {
   try {
     const { name } = req.body;
-    const existing = await SalesCategory.findOne({ name: name.trim() });
+    const clean = String(name || '').trim();
+    if (!clean) return error(res, 'Name is required', 400);
+    const existing = await prisma.salesCategory.findUnique({ where: { name: clean } });
     if (existing) return error(res, 'Category already exists', 400);
-    const category = await SalesCategory.create({ name: name.trim() });
-    success(res, category, 201);
+    const category = await prisma.salesCategory.create({ data: { name: clean } });
+    success(res, one(category), 201);
   } catch (err) {
+    if (err.code === 'P2002') return error(res, 'Category already exists', 400);
     next(err);
   }
 };
@@ -30,10 +33,14 @@ exports.createCategory = async (req, res, next) => {
 // PUT /api/sales/categories/:id
 exports.updateCategory = async (req, res, next) => {
   try {
-    const category = await SalesCategory.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const category = await prisma.salesCategory.update({
+      where: { id: req.params.id },
+      data: req.body,
+    });
     if (!category) return error(res, 'Category not found', 404);
-    success(res, category);
+    success(res, one(category));
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Category not found', 404);
     next(err);
   }
 };
@@ -41,10 +48,11 @@ exports.updateCategory = async (req, res, next) => {
 // DELETE /api/sales/categories/:id
 exports.deleteCategory = async (req, res, next) => {
   try {
-    const result = await SalesCategory.findByIdAndDelete(req.params.id);
+    const result = await prisma.salesCategory.delete({ where: { id: req.params.id } });
     if (!result) return error(res, 'Category not found', 404);
     success(res, { message: 'Category deleted' });
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Category not found', 404);
     next(err);
   }
 };
@@ -55,30 +63,30 @@ exports.deleteCategory = async (req, res, next) => {
 exports.getSales = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, search, category, from, to, paymentMethod } = req.query;
-    const query = {};
+    const where = {};
 
-    if (category) query.category = category;
-    if (paymentMethod) query.paymentMethod = paymentMethod;
+    if (category) where.categoryId = category;
+    if (paymentMethod) where.paymentMethod = paymentMethod;
     if (search) {
-      query.$or = [
-        { categoryName: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { notes: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { categoryName: { contains: search, mode: 'insensitive' } },
+        { customerName: { contains: search, mode: 'insensitive' } },
+        { notes: { contains: search, mode: 'insensitive' } },
       ];
     }
     if (from || to) {
-      query.date = {};
-      if (from) query.date.$gte = new Date(from);
-      if (to) query.date.$lte = new Date(to + 'T23:59:59.999Z');
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) where.date.lte = new Date(to + 'T23:59:59.999Z');
     }
 
     const skip = (Number(page) - 1) * Number(limit);
     const [docs, total] = await Promise.all([
-      Sale.find(query).sort({ date: -1, createdAt: -1 }).skip(skip).limit(Number(limit)),
-      Sale.countDocuments(query),
+      prisma.sale.findMany({ where, orderBy: [{ date: 'desc' }, { createdAt: 'desc' }], skip, take: Number(limit) }),
+      prisma.sale.count({ where }),
     ]);
 
-    paginated(res, { docs, total, page: Number(page), limit: Number(limit) });
+    paginated(res, { docs: many(docs), total, page: Number(page), limit: Number(limit) });
   } catch (err) {
     next(err);
   }
@@ -88,11 +96,11 @@ exports.getSales = async (req, res, next) => {
 exports.getSummary = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const match = {};
+    const where = {};
     if (from || to) {
-      match.date = {};
-      if (from) match.date.$gte = new Date(from);
-      if (to) match.date.$lte = new Date(to + 'T23:59:59.999Z');
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) where.date.lte = new Date(to + 'T23:59:59.999Z');
     }
 
     // Today's income
@@ -101,48 +109,47 @@ exports.getSummary = async (req, res, next) => {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const [totalResult, todayResult, byCategory, byPaymentMethod, monthlyTrend] = await Promise.all([
-      Sale.aggregate([
-        { $match: match },
-        { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
-      ]),
-      Sale.aggregate([
-        { $match: { date: { $gte: todayStart, $lte: todayEnd } } },
-        { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
-      ]),
-      Sale.aggregate([
-        { $match: match },
-        { $group: { _id: '$categoryName', total: { $sum: '$amount' }, count: { $sum: 1 } } },
-        { $sort: { total: -1 } },
-      ]),
-      Sale.aggregate([
-        { $match: match },
-        { $group: { _id: '$paymentMethod', total: { $sum: '$amount' }, count: { $sum: 1 } } },
-        { $sort: { total: -1 } },
-      ]),
-      Sale.aggregate([
-        { $match: match },
-        {
-          $group: {
-            _id: { year: { $year: '$date' }, month: { $month: '$date' } },
-            total: { $sum: '$amount' },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { '_id.year': -1, '_id.month': -1 } },
-        { $limit: 12 },
-      ]),
+    const [sales, todaySales] = await Promise.all([
+      prisma.sale.findMany({ where }),
+      prisma.sale.findMany({ where: { date: { gte: todayStart, lte: todayEnd } } }),
     ]);
 
-    success(res, {
-      total: totalResult[0]?.total || 0,
-      count: totalResult[0]?.count || 0,
-      todayIncome: todayResult[0]?.total || 0,
-      todayCount: todayResult[0]?.count || 0,
-      byCategory,
-      byPaymentMethod,
-      monthlyTrend,
-    });
+    const total = sales.reduce((s, r) => s + (r.amount || 0), 0);
+    const count = sales.length;
+    const todayIncome = todaySales.reduce((s, r) => s + (r.amount || 0), 0);
+    const todayCount = todaySales.length;
+
+    const byCategoryMap = {};
+    for (const r of sales) {
+      const key = r.categoryName;
+      byCategoryMap[key] = byCategoryMap[key] || { _id: key, total: 0, count: 0 };
+      byCategoryMap[key].total += r.amount || 0;
+      byCategoryMap[key].count += 1;
+    }
+    const byCategory = Object.values(byCategoryMap).sort((a, b) => b.total - a.total);
+
+    const byPaymentMethodMap = {};
+    for (const r of sales) {
+      const key = r.paymentMethod;
+      byPaymentMethodMap[key] = byPaymentMethodMap[key] || { _id: key, total: 0, count: 0 };
+      byPaymentMethodMap[key].total += r.amount || 0;
+      byPaymentMethodMap[key].count += 1;
+    }
+    const byPaymentMethod = Object.values(byPaymentMethodMap).sort((a, b) => b.total - a.total);
+
+    const byMonth = {};
+    for (const r of sales) {
+      const d = new Date(r.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonth[key] = byMonth[key] || { _id: { year: d.getFullYear(), month: d.getMonth() + 1 }, total: 0, count: 0 };
+      byMonth[key].total += r.amount || 0;
+      byMonth[key].count += 1;
+    }
+    const monthlyTrend = Object.values(byMonth)
+      .sort((a, b) => (b._id.year - a._id.year) || (b._id.month - a._id.month))
+      .slice(0, 12);
+
+    success(res, { total, count, todayIncome, todayCount, byCategory, byPaymentMethod, monthlyTrend });
   } catch (err) {
     next(err);
   }
@@ -151,32 +158,34 @@ exports.getSummary = async (req, res, next) => {
 // POST /api/sales
 exports.createSale = async (req, res, next) => {
   try {
-    const cat = await SalesCategory.findById(req.body.category);
+    const cat = await prisma.salesCategory.findUnique({ where: { id: req.body.category } });
     if (!cat) return error(res, 'Category not found', 404);
 
-    const sale = await Sale.create({
-      ...req.body,
-      categoryName: cat.name,
-      createdBy: req.user._id,
+    const { category, ...rest } = req.body;
+    const sale = await prisma.sale.create({
+      data: { ...rest, categoryId: category, categoryName: cat.name, createdById: req.user.id },
     });
-    success(res, sale, 201);
+    success(res, one(sale), 201);
   } catch (err) {
     next(err);
   }
 };
-
 // PUT /api/sales/:id
 exports.updateSale = async (req, res, next) => {
   try {
-    if (req.body.category) {
-      const cat = await SalesCategory.findById(req.body.category);
+    const data = { ...req.body };
+    if (data.category) {
+      const cat = await prisma.salesCategory.findUnique({ where: { id: data.category } });
       if (!cat) return error(res, 'Category not found', 404);
-      req.body.categoryName = cat.name;
+      data.categoryName = cat.name;
+      data.categoryId = data.category;
+      delete data.category;
     }
-    const sale = await Sale.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const sale = await prisma.sale.update({ where: { id: req.params.id }, data });
     if (!sale) return error(res, 'Sale not found', 404);
-    success(res, sale);
+    success(res, one(sale));
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Sale not found', 404);
     next(err);
   }
 };
@@ -184,10 +193,11 @@ exports.updateSale = async (req, res, next) => {
 // DELETE /api/sales/:id
 exports.deleteSale = async (req, res, next) => {
   try {
-    const sale = await Sale.findByIdAndDelete(req.params.id);
+    const sale = await prisma.sale.delete({ where: { id: req.params.id } });
     if (!sale) return error(res, 'Sale not found', 404);
     success(res, { message: 'Sale deleted' });
   } catch (err) {
+    if (err.code === 'P2025') return error(res, 'Sale not found', 404);
     next(err);
   }
 };
@@ -198,47 +208,41 @@ exports.getReport = async (req, res, next) => {
     const { from, to } = req.query;
     if (!from || !to) return error(res, 'Please provide from and to dates', 400);
 
-    const match = {
-      date: {
-        $gte: new Date(from),
-        $lte: new Date(to + 'T23:59:59.999Z'),
+    const sales = await prisma.sale.findMany({
+      where: {
+        date: { gte: new Date(from), lte: new Date(to + 'T23:59:59.999Z') },
       },
-    };
+    });
 
-    const [dailyBreakdown, categoryBreakdown, paymentBreakdown, totalResult] = await Promise.all([
-      Sale.aggregate([
-        { $match: match },
-        {
-          $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
-            total: { $sum: '$amount' },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: -1 } },
-      ]),
-      Sale.aggregate([
-        { $match: match },
-        { $group: { _id: '$categoryName', total: { $sum: '$amount' }, count: { $sum: 1 } } },
-        { $sort: { total: -1 } },
-      ]),
-      Sale.aggregate([
-        { $match: match },
-        { $group: { _id: '$paymentMethod', total: { $sum: '$amount' }, count: { $sum: 1 } } },
-        { $sort: { total: -1 } },
-      ]),
-      Sale.aggregate([
-        { $match: match },
-        { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
-      ]),
-    ]);
+    const byDay = {};
+    const byCategory = {};
+    const byPaymentMethod = {};
+    let total = 0;
+    let count = sales.length;
+
+    for (const r of sales) {
+      const amt = r.amount || 0;
+      total += amt;
+      const dayKey = new Date(r.date).toISOString().slice(0, 10);
+      byDay[dayKey] = byDay[dayKey] || { _id: dayKey, total: 0, count: 0 };
+      byDay[dayKey].total += amt;
+      byDay[dayKey].count += 1;
+
+      byCategory[r.categoryName] = byCategory[r.categoryName] || { _id: r.categoryName, total: 0, count: 0 };
+      byCategory[r.categoryName].total += amt;
+      byCategory[r.categoryName].count += 1;
+
+      byPaymentMethod[r.paymentMethod] = byPaymentMethod[r.paymentMethod] || { _id: r.paymentMethod, total: 0, count: 0 };
+      byPaymentMethod[r.paymentMethod].total += amt;
+      byPaymentMethod[r.paymentMethod].count += 1;
+    }
 
     success(res, {
-      total: totalResult[0]?.total || 0,
-      count: totalResult[0]?.count || 0,
-      dailyBreakdown,
-      categoryBreakdown,
-      paymentBreakdown,
+      total,
+      count,
+      dailyBreakdown: Object.values(byDay).sort((a, b) => (a._id < b._id ? 1 : -1)),
+      categoryBreakdown: Object.values(byCategory).sort((a, b) => b.total - a.total),
+      paymentBreakdown: Object.values(byPaymentMethod).sort((a, b) => b.total - a.total),
     });
   } catch (err) {
     next(err);

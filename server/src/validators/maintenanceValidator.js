@@ -23,7 +23,7 @@ const updateProduct = Joi.object({
 });
 
 const createRecord = Joi.object({
-  product: Joi.string().required().hex().length(24),
+  product: Joi.string().required().min(1),
   date: Joi.date().default(() => new Date()),
   workDone: Joi.string().allow('').trim(),
   cost: Joi.number().min(0).default(0),
